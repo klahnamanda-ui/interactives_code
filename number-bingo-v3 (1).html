@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Number Bingo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#2E3D5F;--orange:#F47920;--red:#E53E3E;--green:#22C55E;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Inter',sans-serif;overflow:hidden;display:flex;align-items:center;justify-content:center;user-select:none;}
+#bgLayer{position:fixed;inset:0;z-index:0;background:url('https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/ea21bd5da_background.jpg') center/cover no-repeat;}
+
+/* ── SETUP ── */
+#setupScreen{position:relative;z-index:1;background:rgba(255,255,255,0.96);border-radius:20px;border:3px solid var(--navy);box-shadow:0 8px 32px rgba(0,0,0,0.3);padding:28px 36px;max-width:700px;width:95vw;}
+.setup-title{font-family:'Fredoka One',cursive;font-size:2rem;color:var(--navy);text-align:center;margin-bottom:4px;}
+.setup-sub{font-size:0.85rem;color:#666;text-align:center;margin-bottom:24px;}
+.setup-section{margin-bottom:20px;}
+.setup-label{font-weight:700;font-size:0.78rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--navy);margin-bottom:10px;}
+.board-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.board-opt{border:3px solid #D0DBF0;border-radius:12px;cursor:pointer;transition:all 0.15s;aspect-ratio:16/9;position:relative;overflow:hidden;background:#f0f4f8;}
+.board-opt:hover{border-color:var(--navy);}
+.board-opt.selected{border-color:var(--orange);box-shadow:0 0 0 3px rgba(244,121,32,0.3);}
+.board-opt img{width:100%;height:100%;object-fit:cover;display:block;}
+.board-range-badge{position:absolute;bottom:4px;right:4px;background:rgba(46,61,95,0.85);color:#fff;font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:20px;}
+.option-row{display:flex;gap:8px;}
+.opt-btn{border:2px solid var(--navy);border-radius:10px;padding:10px 16px;font-family:'Inter',sans-serif;font-weight:700;font-size:0.9rem;color:var(--navy);background:#fff;cursor:pointer;transition:all 0.15s;flex:1;text-align:center;}
+.opt-btn:hover{background:#EEF4FC;}
+.opt-btn.selected{background:var(--navy);color:#fff;}
+.start-btn{width:100%;padding:14px;border-radius:12px;border:none;background:var(--orange);color:#fff;font-family:'Fredoka One',cursive;font-size:1.3rem;cursor:pointer;margin-top:4px;box-shadow:0 4px 0 #c4611a;transition:filter 0.15s,transform 0.1s;}
+.start-btn:hover{filter:brightness(1.05);}
+.start-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #c4611a;}
+
+/* Back button */
+.back-btn{position:fixed;bottom:12px;left:12px;z-index:100;border:2px solid var(--navy);border-radius:10px;padding:0 18px;font-family:'Inter',sans-serif;font-weight:700;font-size:0.85rem;color:var(--navy);background:rgba(255,255,255,0.95);cursor:pointer;white-space:nowrap;height:40px;display:none;align-items:center;}
+.back-btn:hover{background:#fff;}
+
+/* ══ 1-PLAYER LAYOUT ══
+   Row1: board | spinner
+   Row2: pile  | how-many
+*/
+#gameScreen1{
+  display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;
+  padding:8px;gap:8px;
+  grid-template-columns:1fr var(--spinner-size,300px);
+  grid-template-rows:1fr 100px;
+}
+#gameScreen1 .board-panel{grid-column:1;grid-row:1;overflow:hidden;position:relative;background:transparent;align-self:center;}
+#gameScreen1 #spinnerWrap1{grid-column:2;grid-row:1;position:relative;overflow:hidden;align-self:center;}
+#gameScreen1 #randBox1{grid-column:2;grid-row:1;align-self:center;justify-self:center;}
+#gameScreen1 #slotBox1{grid-column:2;grid-row:1;align-self:center;justify-self:center;}
+#gameScreen1 #slotBox1{grid-column:2;grid-row:1;align-self:center;justify-self:center;}#gameScreen1 #pileArea1{grid-column:1;grid-row:2;display:flex;align-items:center;justify-content:center;}
+#gameScreen1 #howManyBox1{grid-column:2;grid-row:2;visibility:hidden;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.97);border:4px solid var(--orange);border-radius:12px;box-shadow:0 3px 12px rgba(244,121,32,0.25);margin:4px;cursor:pointer;width:140px;height:140px;justify-self:center;align-self:center;position:relative;top:-25px;}
+#gameScreen1 #howManyBox1.slot-mode{visibility:visible;}
+#howManyBox1.visible{visibility:visible !important;}
+#howManyBox1 span{font-family:'Fredoka One',cursive;font-size:clamp(1.2rem,2.5vw,2rem);color:var(--navy);text-align:center;line-height:1.3;}
+
+/* ══ 2-PLAYER LAYOUT ══
+   Row1: spinner + how-many (centred top)
+   Row2: red-board | green-board
+   Row3: red-pile  | green-pile
+*/
+#gameScreen2{
+  display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;
+  padding:8px;gap:8px;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:var(--spinner-size,280px) 1fr 80px;
+}
+/* Row1: spinner centred - how many floats beside it absolutely */
+#spinnerRow{grid-column:1/3;grid-row:1;display:flex;align-items:center;justify-content:center;position:relative;}
+#spinnerWrap2{position:relative;overflow:hidden;flex-shrink:0;}
+#spinnerWrap2 img{width:100%;height:100%;display:block;object-fit:fill;}
+#howManyBox2{
+  position:absolute;
+  right:8px;top:50%;transform:translateY(-50%);
+  visibility:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,0.97);border:4px solid var(--orange);
+  border-radius:12px;box-shadow:0 3px 12px rgba(244,121,32,0.25);
+  cursor:pointer;
+  width:140px;height:140px;
+}
+#howManyBox2.slot-mode{position:static;transform:none;flex-shrink:0;margin-left:16px;}
+#howManyBox2.visible{visibility:visible;}
+#howManyBox2 span{font-family:'Fredoka One',cursive;font-size:clamp(1.2rem,2.5vw,2rem);color:var(--navy);text-align:center;line-height:1.3;}
+/* Row2: boards */
+#boardPanelRed{grid-column:1;grid-row:2;overflow:hidden;position:relative;background:transparent;}
+#boardPanelGreen{grid-column:2;grid-row:2;overflow:hidden;position:relative;background:transparent;}
+#boardPanelRed img,#boardPanelGreen img{width:100%;height:100%;object-fit:contain;display:block;}
+/* Row3: piles */
+#pileAreaRed{grid-column:1;grid-row:3;display:flex;align-items:center;justify-content:center;}
+#pileAreaGreen{grid-column:2;grid-row:3;display:flex;align-items:center;justify-content:center;}
+
+/* ══ WHITEBOARD LAYOUT ══
+   Row1 (top, pushed down): left-board | spinner | right-board — all same height
+   Row2: left-pile | spinner-gap | right-pile
+*/
+#gameScreen3{
+  display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;
+  padding:0 12px 12px 12px;
+  gap:0;
+  grid-template-columns:1fr var(--wb-spinner,200px) 1fr;
+  grid-template-rows:1fr auto 80px;
+  align-items:end;
+}
+/* Col1 row2: left board */
+#boardPanelRedWB{
+  grid-column:1;grid-row:2;
+  overflow:hidden;position:relative;background:transparent;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+#boardPanelRedWB img{
+  display:block;object-fit:contain;
+}
+/* Col2 row2: spinner column */
+#spinnerColWB{
+  grid-column:2;grid-row:2;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  gap:8px;padding-bottom:0;
+}
+#spinnerWrap3{position:relative;overflow:hidden;flex-shrink:0;}
+#spinnerWrap3 img{width:100%;height:100%;display:block;object-fit:fill;}
+#howManyBox3{
+  visibility:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,0.97);border:4px solid var(--orange);
+  border-radius:12px;box-shadow:0 3px 12px rgba(244,121,32,0.25);
+  cursor:pointer;width:130px;height:130px;flex-shrink:0;
+}
+#howManyBox3.visible{visibility:visible;}
+#howManyBox3.slot-mode{visibility:visible;}
+#howManyBox3 span{font-family:'Fredoka One',cursive;font-size:clamp(1rem,2vw,1.7rem);color:var(--navy);text-align:center;line-height:1.3;}
+/* Col3 row2: right board */
+#boardPanelGreenWB{
+  grid-column:3;grid-row:2;
+  overflow:hidden;position:relative;background:transparent;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+#boardPanelGreenWB img{
+  display:block;object-fit:contain;
+}
+/* Row3: piles sit under their boards */
+#pileAreaRedWB{
+  grid-column:1;grid-row:3;
+  display:flex;align-items:center;justify-content:center;
+}
+#pileAreaSpinnerWB{
+  grid-column:2;grid-row:3;
+  display:flex;align-items:center;justify-content:center;gap:16px;
+}
+#pileAreaGreenWB{
+  grid-column:3;grid-row:3;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* Shared spinner/needle */
+.spinner-img{width:100%;height:100%;display:block;object-fit:fill;}
+.needle-canvas{position:absolute;pointer-events:none;z-index:10;}
+
+/* Spin button */
+.spin-btn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:clamp(44px,5vw,70px);height:clamp(44px,5vw,70px);border-radius:50%;border:3px solid white;background:var(--orange) !important;color:#fff;font-family:'Fredoka One',cursive;font-size:clamp(0.6rem,0.9vw,0.85rem);cursor:pointer;z-index:20;display:flex;align-items:center;justify-content:center;transition:filter 0.15s,transform 0.1s;line-height:1.2;text-align:center;}
+.spin-btn:hover{filter:brightness(1.1);}
+.spin-btn:active{transform:translate(-50%,-50%) scale(0.93);}
+.spin-btn:disabled{background:#aaa !important;cursor:not-allowed;}
+
+.counter-pile{width:60px;height:60px;border-radius:50%;cursor:grab;box-shadow:5px 5px 0 rgba(0,0,0,0.12),10px 10px 0 rgba(0,0,0,0.07);user-select:none;touch-action:none;}
+.counter-pile.red{background:var(--red);border:4px solid white;}
+.counter-pile.green{background:var(--green);border:4px solid white;}
+.counter-pile.orange{background:var(--orange);border:4px solid white;}
+
+/* Counters */
+.counter{position:fixed;width:60px;height:60px;border-radius:50%;border:4px solid white;cursor:grab;box-shadow:0 3px 10px rgba(0,0,0,0.35);user-select:none;opacity:0.8;z-index:500;touch-action:none;}
+
+/* ── SLOT MACHINE BOX ── */
+.slot-box{
+  position:relative;background:#fff;
+  border:4px solid var(--navy);border-radius:20px;overflow:hidden;
+  box-shadow:0 4px 20px rgba(46,61,95,0.25);flex-shrink:0;
+}
+.slot-viewport{position:absolute;inset:0;overflow:hidden;border-radius:16px;}
+.slot-reel{position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column;align-items:center;will-change:transform;}
+.slot-cell{flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:8px;background:#fff;}
+.slot-cell img{width:100%;height:100%;object-fit:contain;display:block;}
+.mode-box{flex-shrink:0;touch-action:none;}
+</style>
+</head>
+<body>
+<div id="bgLayer"></div>
+
+<!-- SETUP -->
+<div id="setupScreen">
+  <div class="setup-title">🎯 Number Bingo</div>
+  <div class="setup-sub">Choose your game type, then press Start!</div>
+  <div class="setup-section">
+    <div class="setup-label">Game Type</div>
+    <div class="option-row">
+      <button class="opt-btn selected" data-val="1" onclick="pickPlayers(this)">1 Bingo Board</button>
+      <button class="opt-btn" data-val="2" onclick="pickPlayers(this)">2 Bingo Boards (tablet or laptop)</button>
+      <button class="opt-btn" data-val="3" onclick="pickPlayers(this)">2 Bingo Boards (whiteboard)</button>
+      <button class="opt-btn" data-val="0" onclick="pickPlayers(this)">Spinner Only</button>
+    </div>
+  </div>
+  <div class="setup-section">
+    <div class="setup-label">Mode</div>
+    <div class="option-row">
+      <button class="opt-btn selected" data-mode="spinner" onclick="pickMode(this)">🎡 Spinner</button>
+      <button class="opt-btn" data-mode="slot" onclick="pickMode(this)">🎰 Slot Machine</button>
+    </div>
+  </div>
+  <div class="setup-section" id="boardSection">
+    <div class="setup-label">Choose a Number Range</div>
+    <div class="option-row" id="rangeRow">
+      <button class="opt-btn selected" data-range="1-5" onclick="pickRange(this)">1–5</button>
+      <button class="opt-btn" data-range="3-7" onclick="pickRange(this)">3–7</button>
+      <button class="opt-btn" data-range="5-9" onclick="pickRange(this)">5–9</button>
+    </div>
+  </div>
+  <button class="start-btn" onclick="startGame()">▶ Start Bingo</button>
+</div>
+
+<button class="back-btn" id="backBtn" onclick="goBack()">← Back</button>
+
+<!-- SPINNER-ONLY GAME -->
+<div id="gameScreen0" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+  <div id="spinnerWrap0" style="position:relative;width:300px;height:300px;overflow:hidden;">
+    <img id="spinnerImg0" src="" alt="Spinner" style="width:100%;height:100%;display:block;object-fit:fill;">
+    <canvas id="needleCanvas0" class="needle-canvas"></canvas>
+    <button class="spin-btn" id="spinBtn0" onclick="doSpin()">Spin!</button>
+  </div>
+  <div id="randBox0" class="rand-box mode-box" style="display:none;width:300px;height:300px;cursor:pointer;"></div>
+  <div id="slotBox0" class="slot-box mode-box" style="display:none;width:300px;height:300px;">
+    <div class="slot-viewport"><div class="slot-reel" id="slotReel0"></div></div>
+  </div>
+  <div id="howManyBox0" style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.97);border:4px solid var(--orange);border-radius:12px;box-shadow:0 3px 12px rgba(244,121,32,0.25);cursor:pointer;width:160px;height:120px;visibility:hidden;">
+    <span style="font-family:'Fredoka One',cursive;font-size:clamp(1.2rem,2.5vw,2rem);color:var(--navy);text-align:center;line-height:1.3;">How<br>many?</span>
+  </div>
+</div>
+
+<!-- 1-PLAYER GAME -->
+<div id="gameScreen1">
+  <div class="board-panel" id="boardPanel1"></div>
+  <div id="spinnerWrap1">
+    <img id="spinnerImg1" src="" alt="Spinner" style="width:100%;height:100%;display:block;object-fit:fill;">
+    <canvas id="needleCanvas1" class="needle-canvas"></canvas>
+    <button class="spin-btn" id="spinBtn" onclick="doSpin()">Spin!</button>
+  </div>
+  <div id="randBox1" class="rand-box mode-box" style="display:none;cursor:pointer;"></div>
+  <div id="slotBox1" class="slot-box mode-box" style="display:none;">
+    <div class="slot-viewport"><div class="slot-reel" id="slotReel1"></div></div>
+  </div>
+  <div id="pileArea1">
+    <div class="counter-pile orange" id="counterPile1"></div>
+  </div>
+  <div id="howManyBox1"><span>Spin!</span></div>
+</div>
+
+<!-- 2-PLAYER GAME -->
+<div id="gameScreen2">
+  <div id="spinnerRow">
+    <div id="spinnerWrap2">
+      <img id="spinnerImg2" src="" alt="Spinner">
+      <canvas id="needleCanvas2" class="needle-canvas"></canvas>
+      <button class="spin-btn" id="spinBtn2" onclick="doSpin()">Spin!</button>
+    </div>
+    <div id="randBox2" class="rand-box mode-box" style="display:none;cursor:pointer;"></div>
+    <div id="slotBox2" class="slot-box mode-box" style="display:none;">
+      <div class="slot-viewport"><div class="slot-reel" id="slotReel2"></div></div>
+    </div>
+    <div id="howManyBox2"><span>Spin!</span></div>
+  </div>
+  <div id="boardPanelRed"></div>
+  <div id="boardPanelGreen"></div>
+  <div id="pileAreaRed"><div class="counter-pile red" id="counterPileRed"></div></div>
+  <div id="pileAreaGreen"><div class="counter-pile green" id="counterPileGreen"></div></div>
+</div>
+
+<!-- 2-PLAYER WHITEBOARD GAME -->
+<div id="gameScreen3">
+  <div id="boardPanelRedWB"></div>
+  <div id="spinnerColWB">
+    <div id="howManyBox3"><span>Spin!</span></div>
+    <div id="spinnerWrap3">
+      <img id="spinnerImg3" src="" alt="Spinner" style="width:100%;height:100%;display:block;object-fit:fill;">
+      <canvas id="needleCanvas3" class="needle-canvas"></canvas>
+      <button class="spin-btn" id="spinBtn3" onclick="doSpin()">Spin!</button>
+    </div>
+    <div id="randBox3" class="rand-box mode-box" style="display:none;cursor:pointer;"></div>
+    <div id="slotBox3" class="slot-box mode-box" style="display:none;">
+      <div class="slot-viewport"><div class="slot-reel" id="slotReel3"></div></div>
+    </div>
+  </div>
+  <div id="boardPanelGreenWB"></div>
+  <div id="pileAreaRedWB"><div class="counter-pile red" id="counterPileRedWB"></div></div>
+  <div id="pileAreaSpinnerWB"></div>
+  <div id="pileAreaGreenWB"><div class="counter-pile green" id="counterPileGreenWB"></div></div>
+</div>
+<script>
+const BOARDS=[
+  {name:'Bingo 1',range:'1-5',img:'https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/4994e0f4c_31.png',  alt:'https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/f5a1fd83f_34.png'},
+  {name:'Bingo 2',range:'3-7',img:'https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/b85de366b_32.png', alt:'https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/e7a65ab93_35.png'},
+  {name:'Bingo 3',range:'5-9',img:'https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/bd4a95d55_33.png', alt:'https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/6aa9a34e1_36.png'},
+];
+const SPINNERS={
+  '1-5':'https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/d16c5f77a_1-5.png',
+  '3-7':'https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/3b7cc400f_3-7.png',
+  '5-9':'https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/685e1fbe0_5-9.png',
+};
+
+/* ── IMAGE LIBRARIES ── */
+const B='https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/';
+
+// DOTS — keyed by variant, mapped to number via DOTS_COMBOS
+const DOTS_URLS={
+  d1a:B+'199fea902_1.png', d1b:B+'c4590103a_2.png',
+  d2a:B+'8ccb0eaab_3.png', d2b:B+'839e7fc29_4.png', d2c:B+'56cbcbdb4_22.png',
+  d3a:B+'bd6d6896e_5.png', d3b:B+'0efec49b8_6.png', d3c:B+'96cceeefe_7.png', d3d:B+'db78dc93b_23.png', d3e:B+'b8d926955_24.png',
+  d4a:B+'6332c4037_8.png', d4b:B+'9f577dbb3_9.png', d4c:B+'81fa42957_10.png', d4d:B+'65e1cf383_11.png', d4e:B+'dfe02a4b7_12.png', d4f:B+'3ee15a578_25.png', d4g:B+'e69a831f6_26.png', d4h:B+'55cc4733d_27.png', d4i:B+'676bfcb48_28.png',
+  d5a:B+'42bb060f6_13.png', d5b:B+'bdd7af44c_14.png', d5c:B+'2b1fc916b_15.png', d5d:B+'dc1350a2b_16.png', d5e:B+'5a8b05607_17.png', d5f:B+'7bcd6ed1b_29.png', d5g:B+'dd57a96c1_30.png',
+  d6a:B+'4e6b473fc_18.png', d6b:B+'a44c61898_19.png', d6c:B+'42ff827b4_20.png', d6d:B+'661f220c0_31.png', d6e:B+'0756cdee3_32.png',
+  d7a:B+'aaa50aca9_21.png', d7b:B+'67b7bef8d_22.png', d7c:B+'d0949f9f9_33.png',
+  d8a:B+'008fff6af_23.png', d8b:B+'482052c10_24.png', d8c:B+'187b9d1c5_34.png',
+  d9a:B+'c6b3557c1_25.png',
+};
+const DOTS_COMBOS={1:['d1a','d1b'],2:['d2a','d2b','d2c'],3:['d3a','d3b','d3c','d3d','d3e'],4:['d4a','d4b','d4c','d4d','d4e','d4f','d4g','d4h','d4i'],5:['d5a','d5b','d5c','d5d','d5e','d5f','d5g'],6:['d6a','d6b','d6c','d6d','d6e'],7:['d7a','d7b','d7c'],8:['d8a','d8b','d8c'],9:['d9a']};
+
+// FINGERS
+const FINGER_URLS={
+  1:B+'d01d1176f_1.png', 2:B+'1964644b8_2.png', '2b':B+'9fb086dea_13.png',
+  3:B+'cd215cb04_3.png', '3b':B+'a112d6e9a_14.png',
+  4:B+'05bfc7c13_4.png', '4b':B+'7fcf6a86f_15.png', '4c':B+'764d878ee_16.png',
+  5:B+'6a4787f53_5.png', '5b':B+'9eee8d07f_17.png',
+  6:B+'314938032_6.png', 7:B+'546df2600_7.png', 8:B+'edd75ee67_8.png',
+  9:B+'a3a467bf7_10.png',
+};
+const FINGER_COMBOS={1:[[1]],2:[[2],['2b']],3:[[3],['3b']],4:[[4],['4b'],['4c']],5:[[5],['5b']],6:[[6]],7:[[7]],8:[[8]],9:[[9]]};
+
+// TEN FRAMES
+const TF_URLS={
+  1:B+'56bcb3753_1.png', 2:B+'8b0d9927d_2.png', 3:B+'d0b6d4f16_3.png',
+  4:B+'035856e9d_4.png', 5:B+'60ed6ec8a_5.png', 6:B+'30ec574da_6.png',
+  7:B+'1abe6e9b6_7.png', 8:B+'c8d4e2a1d_8.png', 9:B+'2878799ff_9.png',
+};
+
+// Build flat pool of all images for a given number (across all types available for that number)
+function getImgPoolForNumber(n){
+  const pool=[];
+  // dots
+  const dc=DOTS_COMBOS[n]||[];
+  dc.forEach(k=>{ if(DOTS_URLS[k]) pool.push(DOTS_URLS[k]); });
+  // fingers
+  const fc=FINGER_COMBOS[n]||[];
+  fc.forEach(combo=>{ const k=combo[0]; if(FINGER_URLS[k]) pool.push(FINGER_URLS[k]); });
+  // ten frames
+  if(TF_URLS[n]) pool.push(TF_URLS[n]);
+  return pool;
+}
+
+/* ── RANDOMISER STATE ── */
+let randInterval=null;
+let randBoxId=null; // current active rand-box element id
+
+function stopRandomiser(){
+  if(randInterval){ clearInterval(randInterval); randInterval=null; }
+}
+
+function runRandomiser(boxId, n, onDone){
+  stopRandomiser();
+  const pool=getImgPoolForNumber(n);
+  if(!pool.length){ onDone && onDone(); return; }
+  const box=document.getElementById(boxId);
+  if(!box) return;
+  // Remove any existing img
+  box.querySelectorAll('img').forEach(i=>i.remove());
+  const img=document.createElement('img');
+  img.style.cssText='width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;';
+  box.appendChild(img);
+
+  let i=0;
+  const totalMs=3000, intervalMs=120;
+  const steps=Math.floor(totalMs/intervalMs);
+  let step=0;
+
+  function showNext(){
+    img.src=pool[i % pool.length];
+    i++;
+  }
+  showNext();
+  randInterval=setInterval(()=>{
+    step++;
+    // Slow down near end
+    const progress=step/steps;
+    if(progress>0.7 && Math.random()<(progress-0.7)*3) return; // skip frames to slow
+    showNext();
+    if(step>=steps){
+      stopRandomiser();
+      // Land on a random image for this number
+      const finalKey=pool[Math.floor(Math.random()*pool.length)];
+      img.src=finalKey;
+      onDone && onDone();
+    }
+  }, intervalMs);
+}
+
+const CIRCLE_PAD=0.04, NUM_SEGS=12, SEG_DEG=30, SEG_OFFSET=15;
+let config={players:1, range:'1-5', mode:'spinner'};
+let spinning=false, needleAngle=0, activeCvId='needleCanvas1';
+
+function pickMode(btn){
+  // Only deselect within the mode row
+  btn.closest('.option-row').querySelectorAll('.opt-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  config.mode=btn.dataset.mode;
+}
+
+function pickPlayers(btn){
+  btn.closest('.option-row').querySelectorAll('.opt-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  config.players=parseInt(btn.dataset.val);
+}
+
+function pickRange(btn){
+  document.querySelectorAll('#rangeRow .opt-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  config.range=btn.dataset.range;
+}
+
+/* ── LAYOUT 0 (spinner only) ── */
+function layout0(){
+  const gs=document.getElementById('gameScreen0');
+  const W=gs.clientWidth, H=gs.clientHeight;
+  const gap=16, hmbH=120;
+  // Spinner must fit: square, leaving room for how-many box below
+  const size=Math.min(H-hmbH-gap, W)-16;
+  const sw=document.getElementById('spinnerWrap0');
+  sw.style.width=size+'px'; sw.style.height=size+'px';
+  const hmb=document.getElementById('howManyBox0');
+  hmb.style.width=Math.round(size*0.45)+'px'; hmb.style.height=hmbH+'px';
+  positionNeedle('needleCanvas0','spinnerWrap0');
+}
+
+/* ── LAYOUT 1P ── */
+function layout1(){
+  const W=window.innerWidth, H=window.innerHeight;
+  const row2H=100, gap=8, pad=8;
+  const row1H=H-row2H-gap-pad*2;
+  const spinnerSize=Math.min(row1H, Math.round(W*0.45));
+
+  const gs=document.getElementById('gameScreen1');
+  gs.style.setProperty('--spinner-size', spinnerSize+'px');
+  gs.style.gridTemplateRows=row1H+'px 100px';
+
+  // Measure actual rendered board image height
+  const bp=document.getElementById('boardPanel1');
+  const img=bp.querySelector('img');
+  let finalSize=spinnerSize;
+  if(img && img.naturalWidth && img.naturalHeight){
+    const boardColW=W - spinnerSize - gap - pad*2;
+    const scale=Math.min(boardColW/img.naturalWidth, row1H/img.naturalHeight);
+    const rendH=Math.round(img.naturalHeight*scale);
+    finalSize=Math.min(spinnerSize, rendH);
+  }
+
+  const sw=document.getElementById('spinnerWrap1');
+  sw.style.width=finalSize+'px';
+  sw.style.height=finalSize+'px';
+  gs.style.setProperty('--spinner-size', finalSize+'px');
+  bp.style.height=finalSize+'px';
+  // Also size rand/slot boxes to match
+  const rb1=document.getElementById('randBox1');
+  if(rb1){ rb1.style.width=finalSize+'px'; rb1.style.height=finalSize+'px'; }
+  const sb1=document.getElementById('slotBox1');
+  if(sb1){ sb1.style.width=finalSize+'px'; sb1.style.height=finalSize+'px'; }
+  positionNeedle('needleCanvas1','spinnerWrap1');
+}
+
+/* ── LAYOUT 2P ── */
+function layout2(){
+  const gs=document.getElementById('gameScreen2');
+  const W=gs.clientWidth, H=gs.clientHeight;
+  const row3H=80, pad=8, gap=8;
+  const row1H=Math.min(Math.round(H*0.38), Math.round(W*0.35));
+  gs.style.setProperty('--spinner-size', row1H+'px');
+  const sw=document.getElementById('spinnerWrap2');
+  sw.style.width=row1H+'px'; sw.style.height=row1H+'px';
+  const rb2=document.getElementById('randBox2');
+  if(rb2){ rb2.style.width=row1H+'px'; rb2.style.height=row1H+'px'; }
+  const sb2=document.getElementById('slotBox2');
+  if(sb2){ sb2.style.width=row1H+'px'; sb2.style.height=row1H+'px'; }
+  positionNeedle('needleCanvas2','spinnerWrap2');
+  // Position howManyBox2 — only in spinner mode (slot mode uses static position)
+  if(config.mode==='spinner'){
+    requestAnimationFrame(()=>{
+      const sw=document.getElementById('spinnerWrap2');
+      const row=document.getElementById('spinnerRow');
+      const swRect=sw.getBoundingClientRect();
+      const rowRect=row.getBoundingClientRect();
+      const hmb=document.getElementById('howManyBox2');
+      hmb.style.left=(swRect.right - rowRect.left + 12)+'px';
+      hmb.style.top=(swRect.top - rowRect.top + (sw.clientHeight - 140)/2)+'px';
+      hmb.style.right='auto'; hmb.style.transform='none';
+    });
+  }
+}
+
+/* ── LAYOUT 3 (whiteboard) ── */
+function layout3(){
+  const W=window.innerWidth, H=window.innerHeight;
+  const pileH=80, padB=12, gap=12;
+  // Available height for boards+spinner — cap at 60% of screen height so it sits low
+  const availH = Math.min(H - pileH - padB, Math.round(H * 0.6));
+  // Spinner col width — keep square
+  const spinnerColW = Math.round(W * 0.22);
+  const spinnerSize = Math.min(availH, spinnerColW);
+  // Boards get remaining width each side
+  const boardColW = Math.floor((W - spinnerColW - gap*4) / 2);
+  // Board image is landscape — calculate rendered height at boardColW
+  const img = document.querySelector('#boardPanelRedWB img');
+  let boardRenderH = availH;
+  if(img && img.naturalWidth && img.naturalHeight){
+    const scale = Math.min(boardColW / img.naturalWidth, availH / img.naturalHeight);
+    boardRenderH = Math.round(img.naturalHeight * scale);
+  }
+  // Final shared height: min of spinner and board rendered height
+  const sharedH = Math.min(spinnerSize, boardRenderH);
+
+  // Apply spinner col CSS var — no top padding, content anchors to bottom
+  const gs = document.getElementById('gameScreen3');
+  gs.style.setProperty('--wb-spinner', spinnerColW+'px');
+  gs.style.paddingTop = '0';
+  gs.style.gridTemplateRows = '1fr '+sharedH+'px 80px';
+
+  // Size spinner
+  const sw = document.getElementById('spinnerWrap3');
+  sw.style.width = sharedH+'px';
+  sw.style.height = sharedH+'px';
+  // Also size rand/slot boxes to match
+  const rb3=document.getElementById('randBox3');
+  if(rb3){ rb3.style.width=sharedH+'px'; rb3.style.height=sharedH+'px'; }
+  const sb3=document.getElementById('slotBox3');
+  if(sb3){ sb3.style.width=sharedH+'px'; sb3.style.height=sharedH+'px'; }
+  positionNeedle('needleCanvas3','spinnerWrap3');
+
+  // Size boards to exactly sharedH tall
+  ['boardPanelRedWB','boardPanelGreenWB'].forEach(id=>{
+    const bp = document.getElementById(id);
+    if(bp){
+      const i = bp.querySelector('img');
+      if(i){
+        i.style.height = sharedH+'px';
+        i.style.width = 'auto';
+        i.style.maxWidth = boardColW+'px';
+      }
+    }
+  });
+}
+function positionNeedle(cvId, wrapId){
+  const wrap=document.getElementById(wrapId);
+  const cv=document.getElementById(cvId);
+  if(!wrap||!cv) return;
+  const wW=wrap.clientWidth, wH=wrap.clientHeight;
+  if(!wW||!wH) return;
+  const pad=wW*CIRCLE_PAD;
+  cv.style.left=pad+'px'; cv.style.top=pad+'px';
+  cv.style.width=(wW-pad*2)+'px'; cv.style.height=(wH-pad*2)+'px';
+  cv.width=Math.round(wW-pad*2); cv.height=Math.round(wH-pad*2);
+  drawNeedle(cv, needleAngle);
+}
+function drawNeedle(cv, angleDeg){
+  const ctx=cv.getContext('2d');
+  const w=cv.width,h=cv.height,cx=w/2,cy=h/2,r=Math.min(w,h)/2;
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  ctx.translate(cx,cy); ctx.rotate(angleDeg*Math.PI/180); ctx.translate(-cx,-cy);
+  const tipY=cy-r*0.55, baseY=cy-r*0.38, baseW=r*0.08, shaftW=r*0.035, tailY=cy+r*0.18;
+  ctx.fillStyle='#F47920';
+  ctx.beginPath(); ctx.moveTo(cx,tipY); ctx.lineTo(cx-baseW,baseY); ctx.lineTo(cx+baseW,baseY); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.rect(cx-shaftW,baseY,shaftW*2,cy-baseY); ctx.fill();
+  ctx.beginPath(); ctx.rect(cx-shaftW*0.8,cy,shaftW*1.6,tailY-cy); ctx.fill();
+  ctx.restore();
+}
+function updateNeedle(){
+  const wrapId=config.players===0?'spinnerWrap0':config.players===1?'spinnerWrap1':config.players===3?'spinnerWrap3':'spinnerWrap2';
+  const cvId=config.players===0?'needleCanvas0':config.players===1?'needleCanvas1':config.players===3?'needleCanvas3':'needleCanvas2';
+  activeCvId=cvId;
+  positionNeedle(cvId, wrapId);
+}
+
+function snapToSegmentCentre(a){
+  const norm=((a-SEG_OFFSET)%360+360)%360;
+  const seg=Math.round(norm/SEG_DEG)%NUM_SEGS;
+  const centre=SEG_OFFSET+seg*SEG_DEG;
+  const full=Math.floor(a/360)*360;
+  let s=full+centre; if(s<a-SEG_DEG/2)s+=360; return s;
+}
+
+function setBoard(panelId, imgSrc){
+  const bp=document.getElementById(panelId);
+  bp.innerHTML='';
+  const img=document.createElement('img');
+  img.src=imgSrc; img.alt='Board';
+  img.style.cssText='width:100%;height:100%;object-fit:contain;display:block;';
+  bp.appendChild(img);
+  return img;
+}
+
+/* ── HELPERS: show/hide spinner vs mode box per screen ── */
+function getBoxIds(playerNum){
+  const p=playerNum===undefined?config.players:playerNum;
+  const s=p===0?'0':p===1?'1':p===3?'3':'2';
+  return {
+    spinnerWrap:'spinnerWrap'+s,
+    spinBtn:p===1?'spinBtn':'spinBtn'+s,
+    randBox:'randBox'+s,
+    slotBox:'slotBox'+s,
+    slotReel:'slotReel'+s,
+    howMany:'howManyBox'+s,
+  };
+}
+
+/* ── SLOT MACHINE ── */
+let slotAnimId=null;
+let slotRunning=false;
+
+function stopSlot(){
+  if(slotAnimId){ cancelAnimationFrame(slotAnimId); slotAnimId=null; }
+  slotRunning=false;
+}
+
+function runSlot(reelId, boxId, n, onDone){
+  stopSlot();
+  const reel=document.getElementById(reelId);
+  const box=document.getElementById(boxId);
+  if(!reel||!box) return;
+
+  const pool=getImgPoolForNumber(n);
+  if(!pool.length){ onDone&&onDone(); return; }
+
+  const boxH=box.clientHeight||300;
+  const cellH=boxH; // one cell fills the viewport
+
+  // Build a long strip: random pool images x20, ending on a random pick of our number
+  const finalUrl=pool[Math.floor(Math.random()*pool.length)];
+  const strip=[];
+  for(let i=0;i<22;i++) strip.push(pool[Math.floor(Math.random()*pool.length)]);
+  strip.push(finalUrl); // land here
+  const landIdx=strip.length-1;
+
+  // Build reel DOM
+  reel.innerHTML='';
+  reel.style.transform='translateY(0)';
+  strip.forEach(url=>{
+    const cell=document.createElement('div');
+    cell.className='slot-cell';
+    cell.style.width=box.clientWidth+'px';
+    cell.style.height=cellH+'px';
+    const img=document.createElement('img');
+    img.src=url;
+    cell.appendChild(img);
+    reel.appendChild(cell);
+  });
+
+  // Animate: scroll from top, accelerate then decelerate, land on landIdx
+  const totalDist=landIdx*cellH; // px to travel
+  const dur=3200; // ms
+  const t0=performance.now();
+  slotRunning=true;
+
+  // Ease: fast in middle, slow at end (ease-out cubic)
+  function easeOut(t){ return 1-Math.pow(1-t,3); }
+
+  function frame(now){
+    if(!slotRunning) return;
+    const elapsed=Math.min(now-t0, dur);
+    const t=elapsed/dur;
+    const dist=totalDist*easeOut(t);
+    reel.style.transform=`translateY(-${dist}px)`;
+
+    if(elapsed<dur){
+      slotAnimId=requestAnimationFrame(frame);
+    } else {
+      // Snap exactly
+      reel.style.transform=`translateY(-${totalDist}px)`;
+      slotRunning=false;
+      // Brief bounce
+      reel.style.transition='transform 0.18s cubic-bezier(.34,1.56,.64,1)';
+      reel.style.transform=`translateY(-${totalDist-8}px)`;
+      setTimeout(()=>{
+        reel.style.transform=`translateY(-${totalDist}px)`;
+        setTimeout(()=>{ reel.style.transition=''; onDone&&onDone(); }, 200);
+      }, 180);
+    }
+  }
+  slotAnimId=requestAnimationFrame(frame);
+}
+
+/* ── GAME START ── */
+function setupScreenMode(spinnerWrapId, randBoxId, spinBtnId){
+  const ids=getBoxIds();
+  ['randBox','slotBox'].forEach(k=>{
+    const el=document.getElementById(ids[k]); if(el) el.style.display='none';
+  });
+  const sw=document.getElementById(ids.spinnerWrap);
+  const sb=document.getElementById(ids.spinBtn);
+  const hmb=document.getElementById(ids.howMany);
+  if(config.mode==='spinner'){
+    if(sw) sw.style.display='';
+    if(sb) sb.style.display='';
+    if(hmb){ hmb.style.visibility='hidden'; hmb.classList.remove('slot-mode'); }
+  } else if(config.mode==='slot'){
+    if(sw) sw.style.display='none';
+    if(sb) sb.style.display='none';
+    const box=document.getElementById(ids.slotBox);
+    if(box) box.style.display='flex';
+    if(hmb){
+      hmb.classList.add('slot-mode');
+      hmb.style.visibility='visible';
+      const span=hmb.querySelector('span');
+      if(span) span.textContent='Spin!';
+    }
+  }
+}
+
+/* ── TOUCH-SAFE EVENT BINDING ── */
+function addTap(el, fn){
+  if(!el) return;
+  el.addEventListener('pointerdown', e=>{ e.preventDefault(); fn(e); }, {passive:false});
+}
+
+function bindTouchEvents(){
+  const s=config.players===0?'0':config.players===1?'1':config.players===3?'3':'2';
+  // Rand box
+  addTap(document.getElementById('randBox'+s), ()=>doSpin());
+  // Spin button (spinner mode)
+  const spinBtnId=config.players===1?'spinBtn':'spinBtn'+s;
+  addTap(document.getElementById(spinBtnId), ()=>doSpin());
+  // How many / Spin box — in slot mode this IS the spin trigger; after spin it becomes How many? → resetSpin
+  addTap(document.getElementById('howManyBox'+s), ()=>{
+    const span=document.getElementById('howManyBox'+s).querySelector('span');
+    if(span && span.textContent.trim()==='Spin!') doSlot();
+    else resetSpin();
+  });
+}
+
+/* ── GAME START ── */
+function startGame(){
+  document.getElementById('setupScreen').style.display='none';
+  const backBtn=document.getElementById('backBtn');
+  backBtn.style.display='flex';
+  needleAngle=0;
+  const board=BOARDS.find(b=>b.range===config.range)||BOARDS[0];
+  const spinnerSrc=SPINNERS[config.range]||SPINNERS['3-7'];
+
+  if(config.players===0){
+    activeCvId='needleCanvas0';
+    document.getElementById('gameScreen0').style.display='flex';
+    setupScreenMode();
+    if(config.mode==='spinner'){
+      const si0=document.getElementById('spinnerImg0');
+      si0.onload=()=>{ layout0(); positionNeedle('needleCanvas0','spinnerWrap0'); };
+      si0.src=spinnerSrc;
+      document.getElementById('spinBtn0').disabled=false;
+      document.getElementById('howManyBox0').style.visibility='hidden';
+    }
+    requestAnimationFrame(()=>setTimeout(layout0, 80));
+    window.addEventListener('resize',layout0);
+  } else if(config.players===1){
+    activeCvId='needleCanvas1';
+    document.getElementById('gameScreen1').style.display='grid';
+    setupScreenMode();
+    const img=setBoard('boardPanel1', board.img);
+    img.onload=()=>{ layout1(); initPileDrag('counterPile1'); };
+    img.onerror=()=>layout1();
+    if(config.mode==='spinner'){
+      const si1=document.getElementById('spinnerImg1');
+      si1.onload=()=>{ layout1(); positionNeedle('needleCanvas1','spinnerWrap1'); };
+      si1.src=spinnerSrc;
+      document.getElementById('spinBtn').disabled=false;
+      document.getElementById('howManyBox1').style.visibility='hidden';
+    }
+    requestAnimationFrame(()=>setTimeout(()=>{layout1(); initPileDrag('counterPile1');},80));
+    window.addEventListener('resize',layout1);
+  } else if(config.players===3){
+    activeCvId='needleCanvas3';
+    document.getElementById('gameScreen3').style.display='grid';
+    setupScreenMode();
+    const imgR=setBoard('boardPanelRedWB', board.img);
+    const imgG=setBoard('boardPanelGreenWB', board.alt);
+    imgR.style.cssText='display:block;';
+    imgG.style.cssText='display:block;';
+    imgR.onload=()=>{ layout3(); initPileDrag('counterPileRedWB'); initPileDrag('counterPileGreenWB'); };
+    imgG.onload=layout3;
+    imgR.onerror=layout3; imgG.onerror=layout3;
+    if(config.mode==='spinner'){
+      document.getElementById('spinnerImg3').src=spinnerSrc;
+      document.getElementById('spinBtn3').disabled=false;
+      document.getElementById('howManyBox3').style.visibility='hidden';
+    }
+    requestAnimationFrame(()=>setTimeout(()=>{
+      layout3();
+      initPileDrag('counterPileRedWB');
+      initPileDrag('counterPileGreenWB');
+    },80));
+    window.addEventListener('resize',layout3);
+  } else {
+    activeCvId='needleCanvas2';
+    document.getElementById('gameScreen2').style.display='grid';
+    setupScreenMode();
+    const imgR=setBoard('boardPanelRed', board.img);
+    const imgG=setBoard('boardPanelGreen', board.alt);
+    imgR.onload=layout2; imgG.onload=layout2;
+    imgR.onerror=layout2; imgG.onerror=layout2;
+    if(config.mode==='spinner'){
+      document.getElementById('spinnerImg2').src=spinnerSrc;
+      document.getElementById('spinBtn2').disabled=false;
+      document.getElementById('howManyBox2').style.visibility='hidden';
+    }
+    requestAnimationFrame(()=>setTimeout(()=>{
+      layout2();
+      initPileDrag('counterPileRed');
+      initPileDrag('counterPileGreen');
+    },80));
+    window.addEventListener('resize',layout2);
+  }
+  // Bind touch-safe events for this screen
+  requestAnimationFrame(()=>bindTouchEvents());
+}
+
+function goBack(){
+  stopRandomiser();
+  stopSlot();
+  document.getElementById('gameScreen0').style.display='none';
+  document.getElementById('gameScreen1').style.display='none';
+  document.getElementById('gameScreen2').style.display='none';
+  document.getElementById('gameScreen3').style.display='none';
+  document.getElementById('setupScreen').style.display='block';
+  document.getElementById('backBtn').style.display='none';
+  ['howManyBox0','howManyBox1','howManyBox2','howManyBox3'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){ el.style.visibility='hidden'; el.classList.remove('slot-mode'); }
+  });
+  document.querySelectorAll('.counter').forEach(e=>e.remove());
+  window.removeEventListener('resize',layout0);
+  window.removeEventListener('resize',layout1);
+  window.removeEventListener('resize',layout2);
+  window.removeEventListener('resize',layout3);
+}
+
+/* ── SPIN / RANDOMISE ── */
+function getNumberFromSpinner(){
+  // Determine which number the needle is pointing at (1-9 based on segment)
+  const norm=((needleAngle-SEG_OFFSET)%360+360)%360;
+  const seg=Math.round(norm/SEG_DEG)%NUM_SEGS;
+  // Spinners have numbers 1-9 repeated across 12 segments, map seg→number
+  const rangeNums={'1-5':[1,2,3,4,5,1,2,3,4,5,1,2],'3-7':[3,4,5,6,7,3,4,5,6,7,3,4],'5-9':[5,6,7,8,9,5,6,7,8,9,5,6]};
+  const nums=rangeNums[config.range]||rangeNums['1-5'];
+  return nums[seg]||nums[0];
+}
+
+function doSpin(){
+  if(config.mode==='slot'){ doSlot(); return; }
+  if(config.mode==='randomiser'){ doRandomise(); return; }
+  // Spinner
+  if(spinning) return;
+  spinning=true;
+  ['howManyBox0','howManyBox1','howManyBox2','howManyBox3'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.visibility='hidden';
+  });
+  const btnId=config.players===0?'spinBtn0':config.players===1?'spinBtn':config.players===3?'spinBtn3':'spinBtn2';
+  document.getElementById(btnId).disabled=true;
+  const extra=(3+Math.random()*3)*360+Math.random()*360;
+  const dur=5000, t0=performance.now(), from=needleAngle;
+  function ease(t){return t<0.5?4*t*t*t:(t-1)*(2*t-2)*(2*t-2)+1;}
+  (function frame(now){
+    const t=Math.min((now-t0)/dur,1);
+    needleAngle=from+extra*ease(t);
+    updateNeedle();
+    if(t<1){requestAnimationFrame(frame);}
+    else{
+      needleAngle=snapToSegmentCentre(needleAngle);
+      updateNeedle();
+      spinning=false;
+      document.getElementById(btnId).disabled=false;
+      const hmbId=config.players===0?'howManyBox0':config.players===1?'howManyBox1':config.players===3?'howManyBox3':'howManyBox2';
+      const hmb=document.getElementById(hmbId);
+      if(hmb){ hmb.style.visibility='visible'; const sp=hmb.querySelector('span'); if(sp) sp.innerHTML='How<br>many?'; }
+    }
+  })(performance.now());
+}
+
+function pickNumber(){
+  const ranges={'1-5':[1,2,3,4,5],'3-7':[3,4,5,6,7],'5-9':[5,6,7,8,9]};
+  const nums=ranges[config.range]||ranges['1-5'];
+  return nums[Math.floor(Math.random()*nums.length)];
+}
+
+function showHowMany(){
+  const ids=getBoxIds();
+  const hmb=document.getElementById(ids.howMany);
+  if(hmb){
+    hmb.style.visibility='visible';
+    const span=hmb.querySelector('span');
+    if(span) span.innerHTML='How<br>many?';
+  }
+}
+
+function showSlotSpin(){
+  const ids=getBoxIds();
+  const hmb=document.getElementById(ids.howMany);
+  if(hmb){
+    hmb.classList.add('slot-mode');
+    hmb.style.visibility='visible';
+    const span=hmb.querySelector('span');
+    if(span) span.textContent='Spin!';
+  }
+}
+
+function doSlot(){
+  if(slotRunning) return;
+  // Hide the howMany/spin box while running
+  const ids=getBoxIds();
+  const hmb=document.getElementById(ids.howMany);
+  if(hmb) hmb.style.visibility='hidden';
+  const n=pickNumber();
+  const box=document.getElementById(ids.slotBox);
+  if(box) box.style.display='flex';
+  runSlot(ids.slotReel, ids.slotBox, n, ()=>showHowMany());
+}
+
+function doRandomise(){
+  const n=pickNumber();
+  const ids=getBoxIds();
+  const hmb=document.getElementById(ids.howMany);
+  if(hmb) hmb.style.visibility='hidden';
+  runRandomiser(ids.randBox, n, ()=>showHowMany());
+}
+
+function resetSpin(){
+  stopSlot();
+  stopRandomiser();
+  // In slot mode, show Spin! again; in spinner mode hide the box
+  const ids=getBoxIds();
+  if(config.mode==='slot'){
+    showSlotSpin();
+    // Clear reel
+    const reel=document.getElementById(ids.slotReel);
+    if(reel){ reel.innerHTML=''; reel.style.transform='translateY(0)'; reel.style.transition=''; }
+  } else {
+    ['howManyBox0','howManyBox1','howManyBox2','howManyBox3'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){ el.style.visibility='hidden'; }
+    });
+  }
+}
+
+/* ── COUNTERS ── */
+function initPileDrag(pileId){
+  const pile=document.getElementById(pileId);
+  if(!pile||pile.dataset.init) return;
+  pile.dataset.init='1';
+  const bg=pile.style.background||getComputedStyle(pile).background;
+  pile.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    const pr=pile.getBoundingClientRect();
+    // Spawn counter at pile position
+    const el=document.createElement('div');
+    el.className='counter';
+    el.style.background=bg;
+    el.style.left=Math.round(pr.left)+'px';
+    el.style.top=Math.round(pr.top)+'px';
+    document.body.appendChild(el);
+    makeDraggable(el);
+    // Start dragging immediately using the same pointer
+    startDrag(el, e);
+  });
+}
+
+function startDrag(el, e){
+  let ox=parseFloat(el.style.left)||0;
+  let oy=parseFloat(el.style.top)||0;
+  let sx=e.clientX, sy=e.clientY;
+  el.style.opacity='0.5';
+  el.setPointerCapture(e.pointerId);
+
+  function onMove(ev){
+    el.style.left=(ox+ev.clientX-sx)+'px';
+    el.style.top=(oy+ev.clientY-sy)+'px';
+  }
+  function onUp(){
+    el.style.opacity='0.8';
+    el.removeEventListener('pointermove',onMove);
+    el.removeEventListener('pointerup',onUp);
+    el.removeEventListener('pointercancel',onUp);
+  }
+  el.addEventListener('pointermove',onMove);
+  el.addEventListener('pointerup',onUp);
+  el.addEventListener('pointercancel',onUp);
+}
+
+function makeDraggable(el){
+  el.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    startDrag(el,e);
+  });
+}
+
+
+</script>
+</body>
+</html>
