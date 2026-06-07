@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Number Match — Race to the Top</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Fredoka+One&family=Edu+NSW+ACT+Foundation:wght@700&display=swap" rel="stylesheet"/>
+  <style>
+    :root { --navy:#2E3D5F; --orange:#F47920; --red:#E53E3E; --green:#22C55E; --blue:#3B82F6; --yellow:#EAB308; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{
+      height:100%;
+      height:-webkit-fill-available;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+      -webkit-user-select:none;
+    }
+    body{
+      font-family:'Inter',sans-serif;
+      width:100vw;
+      height:100vh;
+      height:-webkit-fill-available;
+      overflow:hidden;
+      display:grid;
+      grid-template-rows:1fr 110px;
+      grid-template-columns:70px 1fr 70px;
+      /* Prevent rubber-band scroll on iPad */
+      position:fixed;
+      top:0;left:0;right:0;bottom:0;
+      touch-action:manipulation;
+    }
+    #bgLayer{position:fixed;inset:0;z-index:0;background:url('https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/ea21bd5da_background.jpg') center/cover no-repeat;}
+
+    /* ══ PVP SCORE BARS ══════════════════════════════════════ */
+    .score-bar{grid-row:1;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 8px;gap:6px;}
+    .score-bar.red-bar{background:rgba(197,48,48,0.82);}
+    .score-bar.green-bar{background:rgba(21,128,61,0.82);}
+    .bar-label{font-family:'Fredoka One',cursive;font-size:0.85rem;color:white;text-align:center;flex-shrink:0;}
+    .bar-score{font-family:'Fredoka One',cursive;font-size:2rem;color:white;text-shadow:0 1px 6px rgba(0,0,0,0.4);flex-shrink:0;}
+    .bar-of{font-size:0.65rem;font-weight:700;color:rgba(255,255,255,0.8);flex-shrink:0;text-align:center;}
+    .bar-outer{flex:1;width:32px;background:rgba(255,255,255,0.3);border-radius:20px;border:2px solid rgba(255,255,255,0.35);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;}
+    .bar-fill{width:100%;border-radius:20px;transition:height 0.5s cubic-bezier(.34,1.56,.64,1);}
+    .bar-fill.red{background:linear-gradient(to top,#9b2c2c,#fc8181);}
+    .bar-fill.green{background:linear-gradient(to top,#14532d,#4ade80);}
+
+    /* ══ PVP CENTRE ══════════════════════════════════════════ */
+    .centre{grid-column:2;grid-row:1;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 14px;gap:8px;min-height:0;}
+    .rep-card{width:100%;background:rgba(255,255,255,0.97);border-radius:20px;border:3px solid var(--navy);box-shadow:0 8px 32px rgba(46,61,95,0.22);padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;overflow:hidden;min-height:0;position:relative;transition:box-shadow 0.15s,border-color 0.15s;}
+    .rep-card.flash-red  {border-color:var(--red);  box-shadow:0 0 0 6px rgba(229,62,62,0.35);}
+    .rep-card.flash-green{border-color:var(--green);box-shadow:0 0 0 6px rgba(34,197,94,0.35);}
+    .result-overlay{display:none;position:absolute;inset:0;border-radius:17px;align-items:center;justify-content:center;flex-direction:column;gap:10px;font-family:'Fredoka One',cursive;font-size:clamp(2.2rem,4vw,3.5rem);color:white;z-index:10;text-align:center;padding:20px;}
+    .result-overlay.show     {display:flex;}
+    .result-overlay.red-win  {background:rgba(197,48,48,0.93);}
+    .result-overlay.green-win{background:rgba(21,128,61,0.93);}
+    .result-overlay.no-point {background:rgba(80,80,80,0.93);}
+    .result-overlay .sub{font-family:'Inter',sans-serif;font-size:clamp(1rem,1.8vw,1.4rem);font-weight:700;opacity:0.92;}
+    .round-info{font-family:'Inter',sans-serif;font-weight:700;font-size:0.85rem;color:var(--navy);background:rgba(255,255,255,0.9);border-radius:20px;padding:3px 14px;flex-shrink:0;border:2px solid rgba(46,61,95,0.15);}
+    .steal-countdown{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,0.5);font-family:'Fredoka One',cursive;font-size:1.2rem;color:white;flex-shrink:0;}
+
+    /* ══ FTTP LAYOUT ══════════════════════════════════════════
+       fttpArea spans all 3 grid columns, row 1.
+       Inside: [player panels in a ROW] [progress bar column]
+       Each player panel is flex:1 so they share width equally.
+    ═══════════════════════════════════════════════════════════ */
+    #fttpArea{
+      display:none;
+      grid-column:1/-1;grid-row:1;
+      position:relative;z-index:1;
+      min-height:0;
+    }
+    #fttpArea.active{display:flex;flex-direction:row;}
+
+    /* All player panels sit in this row — fills everything except the progress bar */
+    #fttpPlayersRow{
+      flex:1;
+      display:flex;flex-direction:row;
+      gap:0;min-height:0;overflow:hidden;
+    }
+
+    /* Each player's panel — equal width, full height */
+    .fttp-player{
+      flex:1;
+      display:flex;flex-direction:column;
+      align-items:stretch;
+      padding:10px 10px 8px;
+      gap:6px;
+      min-height:0;overflow:hidden;
+      border-right:3px solid rgba(255,255,255,0.2);
+    }
+    .fttp-player:last-child{border-right:none;}
+
+    .fttp-player-label{
+      font-family:'Fredoka One',cursive;font-size:0.95rem;
+      color:white;padding:3px 12px;border-radius:20px;
+      flex-shrink:0;text-align:center;
+    }
+
+    /* The card itself fills all remaining vertical space */
+    .fttp-card{
+      flex:1;
+      background:rgba(255,255,255,0.97);
+      border-radius:14px;border:3px solid var(--navy);
+      box-shadow:0 4px 16px rgba(46,61,95,0.18);
+      display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      overflow:hidden;min-height:0;position:relative;
+      transition:box-shadow 0.15s,border-color 0.15s;
+    }
+    .fttp-card img{max-width:92%;max-height:100%;object-fit:contain;pointer-events:none;display:block;}
+    .fttp-card.flash-correct{border-color:var(--green);box-shadow:0 0 0 5px rgba(34,197,94,0.35);}
+    .fttp-card.flash-wrong  {border-color:var(--red);  box-shadow:0 0 0 5px rgba(229,62,62,0.35);}
+
+    .fttp-result-overlay{
+      display:none;position:absolute;inset:0;border-radius:11px;
+      align-items:center;justify-content:center;
+      font-family:'Fredoka One',cursive;font-size:clamp(1.4rem,2.5vw,2.2rem);color:white;
+      z-index:10;text-align:center;
+    }
+    .fttp-result-overlay.show         {display:flex;}
+    .fttp-result-overlay.correct-flash{background:rgba(21,128,61,0.88);}
+    .fttp-result-overlay.wrong-flash  {background:rgba(197,48,48,0.88);}
+
+    /* ── Progress bars (left and right of fttpArea) ─────────── */
+    .fttp-progress-col{
+      flex:0 0 76px;
+      display:flex;flex-direction:column;
+      align-items:center;justify-content:flex-start;
+      padding:8px 4px 6px;gap:4px;
+      min-height:0;
+      background:rgba(0,0,0,0.20);
+    }
+    .progress-trophy{font-size:1.8rem;flex-shrink:0;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));}
+    .progress-track{
+      flex:1;width:48px;position:relative;
+      background:rgba(255,255,255,0.15);
+      border-radius:24px;border:2px solid rgba(255,255,255,0.25);
+      overflow:visible;min-height:0;
+    }
+    .progress-target-line{position:absolute;left:-6px;right:-6px;top:2px;height:3px;background:rgba(255,255,255,0.75);border-radius:2px;}
+    .progress-fill{position:absolute;left:4px;right:4px;bottom:0;border-radius:20px;transition:height 0.6s cubic-bezier(.34,1.56,.64,1);opacity:0.6;}
+    .progress-dot{
+      position:absolute;left:50%;transform:translateX(-50%);
+      width:32px;height:32px;border-radius:50%;
+      border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);
+      display:flex;align-items:center;justify-content:center;
+      font-size:1rem;
+      transition:bottom 0.6s cubic-bezier(.34,1.4,.64,1);z-index:2;
+    }
+    .progress-label{font-family:'Fredoka One',cursive;font-size:0.62rem;color:rgba(255,255,255,0.8);text-align:center;flex-shrink:0;}
+
+    /* ══ BOTTOM STRIP ════════════════════════════════════════ */
+    .bottom-strip{grid-column:1/-1;grid-row:2;position:relative;z-index:1;display:flex;align-items:stretch;}
+    /* FTTP: gaps between groups are added via padding on the strip wrapper in JS.
+       Each group has side padding so the buttons sit under the card, not the gap. */
+    .player-btn-group{flex:1;display:flex;align-items:stretch;}
+    .player-btn-group:last-child{border-right:none;}
+    .choice-btn{
+      flex:1;border:none;
+      font-family:'Edu NSW ACT Foundation',cursive;font-weight:700;
+      font-size:clamp(2rem,3.8vw,3.8rem);
+      cursor:pointer;color:white;
+      display:flex;align-items:center;justify-content:center;
+      transition:filter 0.08s,transform 0.07s;
+      border-right:2px solid rgba(255,255,255,0.12);
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .choice-btn:last-child{border-right:none;}
+    .choice-btn:active  {filter:brightness(0.82);transform:scale(0.97);}
+    .choice-btn:disabled{opacity:0.2;cursor:default;transform:none;filter:none;}
+    .choice-btn.correct {background:var(--orange)!important;filter:none!important;}
+    .choice-btn.wrong   {background:#718096!important;filter:none!important;}
+    .next-wrap{flex:0 0 80px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.15);flex-shrink:0;}
+    .next-btn{background:var(--orange);color:white;border:none;border-radius:50%;width:56px;height:56px;cursor:pointer;box-shadow:0 4px 0 #c4611a;transition:transform 0.08s,box-shadow 0.08s;display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+    .next-btn:hover {filter:brightness(1.06);}
+    .next-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #c4611a;}
+    .next-btn svg{width:28px;height:28px;fill:white;}
+
+    /* ══ OVERLAYS ════════════════════════════════════════════ */
+    #timeUpOverlay{display:none;position:fixed;inset:0;z-index:300;align-items:center;justify-content:center;background:rgba(30,30,30,0.93);font-family:'Fredoka One',cursive;color:white;text-align:center;animation:fadeIn 0.3s ease;}
+    #timeUpOverlay.show{display:flex;}
+    @keyframes fadeIn{from{opacity:0;transform:scale(0.9);}to{opacity:1;transform:scale(1);}}
+    #timeUpOverlay .tup-big{font-size:clamp(3rem,8vw,6rem);color:var(--orange);}
+
+    /* FTTP Win */
+    #fttpWinOverlay{display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:16px;font-family:'Fredoka One',cursive;color:white;text-align:center;padding:40px;}
+    #fttpWinOverlay.show{display:flex;animation:winPop 0.5s cubic-bezier(.34,1.56,.64,1);}
+    @keyframes winPop{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:scale(1);}}
+    .win-trophy{font-size:clamp(5rem,12vw,9rem);animation:bounce 0.8s ease infinite alternate;}
+    @keyframes bounce{from{transform:translateY(0);}to{transform:translateY(-16px);}}
+    .win-title {font-size:clamp(2.2rem,5vw,4.5rem);text-shadow:0 4px 20px rgba(0,0,0,0.3);}
+    .win-sub   {font-size:clamp(1rem,2vw,1.6rem);opacity:0.9;}
+    .win-scores{font-size:clamp(0.85rem,1.5vw,1.2rem);opacity:0.85;font-family:'Inter',sans-serif;font-weight:700;}
+    .win-play-again{background:white;border:none;border-radius:16px;padding:13px 44px;font-family:'Fredoka One',cursive;font-size:1.3rem;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,0.2);margin-top:6px;transition:filter 0.15s,transform 0.1s;}
+    .win-play-again:hover {filter:brightness(1.05);}
+    .win-play-again:active{transform:translateY(3px);}
+
+    /* PVP Game over */
+    #gameOverOverlay{display:none;position:fixed;inset:0;z-index:200;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);}
+    #gameOverOverlay.show{display:flex;}
+    .game-over-card{background:rgba(255,255,255,0.97);border-radius:24px;border:3px solid var(--navy);padding:44px 52px;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,0.3);max-width:460px;}
+    .game-over-card h2{font-family:'Fredoka One',cursive;font-size:2.6rem;margin-bottom:8px;}
+    .game-over-card .scores{font-size:1.2rem;font-weight:700;color:#555;margin-bottom:26px;}
+    .pvp-play-again{background:var(--orange);color:white;border:none;border-radius:12px;padding:13px 38px;font-family:'Fredoka One',cursive;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 0 #c4611a;transition:filter 0.15s,transform 0.1s;}
+    .pvp-play-again:hover {filter:brightness(1.05);}
+    .pvp-play-again:active{transform:translateY(3px);}
+
+    /* ══ SETUP ═══════════════════════════════════════════════ */
+    .setup-screen{
+      position:fixed;inset:0;z-index:10;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.55);
+      overflow-y:auto;-webkit-overflow-scrolling:touch;
+      padding:12px;
+    }
+    .setup-card{
+      background:rgba(255,255,255,0.97);border-radius:20px;
+      border:3px solid var(--navy);box-shadow:0 8px 32px rgba(0,0,0,0.3);
+      padding:18px 24px;width:94%;max-width:920px;margin:auto;
+    }
+    .setup-title{font-family:'Fredoka One',cursive;font-size:1.6rem;color:var(--navy);text-align:center;margin-bottom:2px;}
+    .setup-sub  {font-size:0.78rem;color:#555;text-align:center;margin-bottom:12px;line-height:1.4;}
+    /* Two-column grid — left col: mode + range, right col: mode options + start */
+    .setup-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+    .setup-col{display:flex;flex-direction:column;gap:0;}
+    .setup-section{margin-bottom:12px;}
+    .setup-label{font-weight:700;font-size:0.72rem;letter-spacing:1.3px;text-transform:uppercase;color:var(--navy);margin-bottom:6px;display:block;}
+    .mode-toggle{display:flex;border-radius:12px;overflow:hidden;border:2.5px solid #D0DBF0;}
+    .mode-btn{flex:1;padding:8px 6px;border:none;background:white;cursor:pointer;font-family:'Fredoka One',cursive;font-size:0.82rem;color:#888;transition:background 0.15s,color 0.15s;display:flex;flex-direction:column;align-items:center;gap:1px;touch-action:manipulation;}
+    .mode-btn .mode-icon{font-size:1.2rem;}
+    .mode-btn .mode-desc{font-family:'Inter',sans-serif;font-size:0.62rem;font-weight:600;color:#999;}
+    .mode-btn.selected{background:var(--navy);color:white;}
+    .mode-btn.selected .mode-desc{color:rgba(255,255,255,0.75);}
+    .mode-btn:first-child{border-right:2px solid #D0DBF0;}
+    .range-options{display:flex;flex-direction:column;gap:6px;}
+    .range-option{display:flex;align-items:center;border:2.5px solid #D0DBF0;border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color 0.15s,background 0.15s;}
+    .range-option:hover   {border-color:var(--navy);}
+    .range-option.selected{border-color:var(--orange);background:#FEF3E8;}
+    .range-radio{display:none;}
+    .range-content{display:flex;align-items:center;gap:10px;padding:7px 10px;width:100%;}
+    .range-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+    .range-icon.blue  {background:#EEF4FC;}
+    .range-icon.orange{background:#FEF3E8;}
+    .range-icon.purple{background:#F3EEF9;}
+    .range-text-label{font-size:0.9rem;font-weight:900;color:var(--navy);display:block;}
+    .range-text-desc {font-size:0.68rem;color:#666;font-weight:600;}
+    .range-check{width:16px;height:16px;border-radius:50%;border:2.5px solid #ccc;margin-left:auto;margin-right:8px;flex-shrink:0;transition:all 0.15s;display:flex;align-items:center;justify-content:center;}
+    .range-option.selected .range-check{border-color:var(--orange);background:var(--orange);}
+    .range-option.selected .range-check::after{content:'';width:5px;height:5px;background:white;border-radius:50%;}
+    .setup-select{width:100%;padding:8px 10px;border:2px solid #D0DBF0;border-radius:10px;font-family:'Inter',sans-serif;font-weight:700;font-size:0.9rem;color:var(--navy);background:white;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%232E3D5F' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
+    .setup-select:focus{outline:none;border-color:var(--orange);}
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:2px solid #D0DBF0;border-radius:10px;}
+    .toggle-row-label{font-weight:700;font-size:0.85rem;color:var(--navy);}
+    .toggle-row-desc {font-size:0.68rem;color:#666;margin-top:1px;}
+    .toggle-switch{position:relative;width:46px;height:26px;flex-shrink:0;}
+    .toggle-switch input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:26px;cursor:pointer;transition:background 0.2s;}
+    .toggle-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:white;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);}
+    .toggle-switch input:checked+.toggle-slider{background:var(--orange);}
+    .toggle-switch input:checked+.toggle-slider::before{transform:translateX(20px);}
+    .teams-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:12px;}
+    .team-badge{border-radius:10px;padding:6px 12px;font-family:'Fredoka One',cursive;font-size:0.85rem;color:white;}
+    .start-btn{width:100%;padding:11px;border-radius:12px;border:none;background:var(--orange);color:white;font-family:'Fredoka One',cursive;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 0 #c4611a;transition:filter 0.15s,transform 0.1s;touch-action:manipulation;}
+    .start-btn:hover {filter:brightness(1.05);}
+    .start-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #c4611a;}
+    .pvp-only {}
+    .fttp-only{display:none;}
+    .fttp-only.show{display:block;}
+    /* Narrow screens (portrait phone): stack to single column */
+    @media (max-width:600px){
+      .setup-columns{grid-template-columns:1fr;}
+      .setup-card{padding:16px 18px;}
+      .setup-title{font-size:1.8rem;}
+    }
+  </style>
+</head>
+<body>
+<div id="bgLayer"></div>
+
+<!-- ══ SETUP ════════════════════════════════════════════════ -->
+<div class="setup-screen" id="setupScreen">
+  <div class="setup-card">
+    <div class="setup-title">🎯 Number Match</div>
+    <div class="setup-sub" id="setupDesc">A picture appears — match it to the correct number!</div>
+
+    <div class="setup-columns">
+      <!-- LEFT COLUMN: mode + range (always visible) -->
+      <div class="setup-col">
+        <div class="setup-section">
+          <span class="setup-label">Game Mode</span>
+          <div class="mode-toggle">
+            <button class="mode-btn selected" id="modePvP" onclick="selectMode('pvp')">
+              <span class="mode-icon">⚔️</span><span>Player vs Player</span>
+              <span class="mode-desc">Fixed rounds · steal mechanic</span>
+            </button>
+            <button class="mode-btn" id="modeFTTP" onclick="selectMode('fttp')">
+              <span class="mode-icon">🏆</span><span>Race to the Top</span>
+              <span class="mode-desc">1–4 players · race to target</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="setup-section">
+          <span class="setup-label">Number range</span>
+          <div class="range-options">
+            <label class="range-option selected" id="opt1-10">
+              <input class="range-radio" type="radio" name="range" value="1-10" checked onchange="selectRange('1-10')"/>
+              <div class="range-content"><div class="range-icon blue">🖐️</div><div><span class="range-text-label">1 – 10</span><span class="range-text-desc">Fingers · Dots · Ten frames</span></div><div class="range-check"></div></div>
+            </label>
+            <label class="range-option" id="opt1-20">
+              <input class="range-radio" type="radio" name="range" value="1-20" onchange="selectRange('1-20')"/>
+              <div class="range-content"><div class="range-icon orange">🔢</div><div><span class="range-text-label">1 – 20</span><span class="range-text-desc">Place value · Ten frames</span></div><div class="range-check"></div></div>
+            </label>
+            <label class="range-option" id="opt1-100">
+              <input class="range-radio" type="radio" name="range" value="1-100" onchange="selectRange('1-100')"/>
+              <div class="range-content"><div class="range-icon purple">💯</div><div><span class="range-text-label">1 – 100</span><span class="range-text-desc">Place value · Ten frames</span></div><div class="range-check"></div></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: mode-specific options + teams + start -->
+      <div class="setup-col">
+        <!-- PVP ONLY -->
+        <div class="setup-section pvp-only" id="pvpSection">
+          <span class="setup-label">Number of students (pairs share a round)</span>
+          <select class="setup-select" id="playerCount">
+            <option value="2">2 students — 1 round</option><option value="4">4 students — 2 rounds</option>
+            <option value="6">6 students — 3 rounds</option><option value="8">8 students — 4 rounds</option>
+            <option value="10">10 students — 5 rounds</option><option value="12">12 students — 6 rounds</option>
+            <option value="14">14 students — 7 rounds</option><option value="16">16 students — 8 rounds</option>
+            <option value="18" selected>18 students — 9 rounds</option><option value="20">20 students — 10 rounds</option>
+            <option value="22">22 students — 11 rounds</option><option value="24">24 students — 12 rounds</option>
+            <option value="26">26 students — 13 rounds</option><option value="28">28 students — 14 rounds</option>
+            <option value="30">30 students — 15 rounds</option>
+          </select>
+        </div>
+
+        <div class="setup-section pvp-only" id="stealSection">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-row-label">Steal mechanic</div>
+              <div class="toggle-row-desc">Off = wrong answer ends the round with no point</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="stealToggle" checked/>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- FTTP ONLY -->
+        <div class="setup-section fttp-only" id="fttpPlayersSection">
+          <span class="setup-label">Number of players</span>
+          <select class="setup-select" id="fttpPlayerCount" onchange="updateFttpPlayerBadges()">
+            <option value="1">1 player</option><option value="2" selected>2 players</option>
+            <option value="3">3 players</option><option value="4">4 players</option>
+          </select>
+        </div>
+        <div class="setup-section fttp-only" id="targetSection">
+          <span class="setup-label">First to score…</span>
+          <select class="setup-select" id="targetScore">
+            <option value="5">5 points</option><option value="6">6 points</option><option value="7">7 points</option>
+            <option value="8">8 points</option><option value="9">9 points</option>
+            <option value="10" selected>10 points</option><option value="12">12 points</option>
+            <option value="15">15 points</option><option value="20">20 points</option>
+          </select>
+        </div>
+        <div class="setup-section fttp-only" id="tryAgainSection">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-row-label">Try again on wrong answer</div>
+              <div class="toggle-row-desc">Off = move straight to next question</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="tryAgainToggle" checked/>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="teams-row" id="teamsRow">
+          <div class="team-badge" style="background:var(--red);">🔴 Red — LEFT</div>
+          <div class="team-badge" style="background:#15803d;">🟢 Green — RIGHT</div>
+        </div>
+        <button class="start-btn" onclick="startGame()">▶ Start Game</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TIME UP FLASH ════════════════════════════════════════ -->
+<div id="timeUpOverlay"><div class="tup-big">⏱️ Time's Up!</div></div>
+
+<!-- ══ PVP GAME OVER ════════════════════════════════════════ -->
+<div id="gameOverOverlay">
+  <div class="game-over-card">
+    <h2 id="gameOverTitle"></h2>
+    <div class="scores" id="gameOverScores"></div>
+    <button class="pvp-play-again" onclick="resetGame()">▶ Play Again</button>
+  </div>
+</div>
+
+<!-- ══ FTTP WIN SCREEN ══════════════════════════════════════ -->
+<div id="fttpWinOverlay">
+  <div class="win-trophy">🏆</div>
+  <div class="win-title"  id="winTitle">Player 1 Wins!</div>
+  <div class="win-sub"    id="winSub">Race to the Top!</div>
+  <div class="win-scores" id="winScores"></div>
+  <button class="win-play-again" id="winPlayAgainBtn" onclick="resetGame()">▶ Play Again</button>
+</div>
+
+<!-- ══ PVP LAYOUT ═══════════════════════════════════════════ -->
+<div class="score-bar red-bar" id="pvpRedBar" style="grid-column:1;grid-row:1;">
+  <div class="bar-label">🔴 RED</div>
+  <div class="bar-score" id="redScore">0</div>
+  <div class="bar-of" id="redLabel">of 10</div>
+  <div class="bar-outer"><div class="bar-fill red" id="redFill" style="height:0%;"></div></div>
+</div>
+<div class="centre" id="pvpCentre">
+  <div id="stealBanner" style="display:none;width:100%;border-radius:14px;padding:10px 16px;text-align:center;font-family:'Fredoka One',cursive;font-size:1.15rem;color:white;flex-shrink:0;"></div>
+  <div class="rep-card" id="repCard">
+    <div style="color:#aaa;font-family:'Fredoka One',cursive;font-size:1.2rem;pointer-events:none;">Press ▶ to begin</div>
+    <div class="result-overlay" id="resultOverlay"><div id="resultText"></div><div class="sub" id="resultSub"></div></div>
+  </div>
+  <div id="teacherPanel" style="display:none;width:100%;border-radius:14px;padding:10px 14px;background:rgba(46,61,95,0.92);flex-shrink:0;"></div>
+  <div class="round-info" id="roundInfo">Round 1 of 10</div>
+</div>
+<div class="score-bar green-bar" id="pvpGreenBar" style="grid-column:3;grid-row:1;">
+  <div class="bar-label">🟢 GREEN</div>
+  <div class="bar-score" id="greenScore">0</div>
+  <div class="bar-of" id="greenLabel">of 10</div>
+  <div class="bar-outer"><div class="bar-fill green" id="greenFill" style="height:0%;"></div></div>
+</div>
+
+<!-- ══ FTTP LAYOUT ═══════════════════════════════════════════
+     Left progress bar | player cards row | right progress bar
+════════════════════════════════════════════════════════════ -->
+<div id="fttpArea">
+  <div id="fttpProgressColLeft" class="fttp-progress-col">
+    <div class="progress-trophy">🏆</div>
+    <div class="progress-track" id="progressTrackLeft"></div>
+    <div class="progress-label" id="progressLabelLeft">First to 10</div>
+  </div>
+  <div id="fttpPlayersRow"></div>
+  <div id="fttpProgressCol" class="fttp-progress-col">
+    <div class="progress-trophy">🏆</div>
+    <div class="progress-track" id="progressTrack"></div>
+    <div class="progress-label" id="progressLabel">First to 10</div>
+  </div>
+</div>
+
+<!-- ══ BOTTOM STRIP ══════════════════════════════════════════ -->
+<div class="bottom-strip" id="bottomStrip">
+    <button class="choice-btn" style="background:#e53e3e;font-size:clamp(2rem,3.8vw,3.8rem);" id="red-0" onclick="answer('red',0)" disabled></button>
+  <button class="choice-btn" style="background:#c53030;font-size:clamp(2rem,3.8vw,3.8rem);" id="red-1" onclick="answer('red',1)" disabled></button>
+  <button class="choice-btn" style="background:#9b2c2c;font-size:clamp(2rem,3.8vw,3.8rem);" id="red-2" onclick="answer('red',2)" disabled></button>
+  <div class="next-wrap"><button class="next-btn" id="nextBtn"><svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/></svg></button></div>
+  <button class="choice-btn" style="background:#16a34a;font-size:clamp(2rem,3.8vw,3.8rem);" id="green-0" onclick="answer('green',0)" disabled></button>
+  <button class="choice-btn" style="background:#15803d;font-size:clamp(2rem,3.8vw,3.8rem);" id="green-1" onclick="answer('green',1)" disabled></button>
+  <button class="choice-btn" style="background:#166534;font-size:clamp(2rem,3.8vw,3.8rem);" id="green-2" onclick="answer('green',2)" disabled></button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  PLAYER CONFIG
+// ═══════════════════════════════════════════════════
+const PLAYERS=[
+  {id:'red',   emoji:'🔴',label:'Red',   bg:['#e53e3e','#c53030','#9b2c2c'],hex:'#e53e3e',fill:'linear-gradient(to top,#9b2c2c,#fc8181)'},
+  {id:'green', emoji:'🟢',label:'Green', bg:['#16a34a','#15803d','#166534'],hex:'#16a34a',fill:'linear-gradient(to top,#14532d,#4ade80)'},
+  {id:'blue',  emoji:'🔵',label:'Blue',  bg:['#3b82f6','#2563eb','#1d4ed8'],hex:'#3b82f6',fill:'linear-gradient(to top,#1d4ed8,#93c5fd)'},
+  {id:'yellow',emoji:'🟡',label:'Yellow',bg:['#eab308','#ca8a04','#a16207'],hex:'#eab308',fill:'linear-gradient(to top,#a16207,#fde047)'},
+];
+const TYPES_010=['dots','tenframe','fingers'];
+const TYPES_WIDE=['placevalue','tenframe'];
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let currentMode='pvp', currentRange='1-10', gameRunning=false;
+// PVP
+let pvpRedScore=0,pvpGreenScore=0,correctIndex=-1,options=[];
+let roundActive=false,roundPhase=0,lockedTeam='';
+let currentType='',correctNumber=0,stealTimer=null,stealSecondsLeft=5;
+let totalRounds=10,currentRound=0,typeDeck=[];
+let pvpStealEnabled=true;
+// FTTP
+let fttpNumPlayers=2,fttpTarget=10,fttpTryAgain=true,fttpState=[];
+
+// ═══════════════════════════════════════════════════
+//  SETUP UI
+// ═══════════════════════════════════════════════════
+function selectMode(mode){
+  currentMode=mode;
+  document.getElementById('modePvP').classList.toggle('selected',mode==='pvp');
+  document.getElementById('modeFTTP').classList.toggle('selected',mode==='fttp');
+  document.querySelectorAll('.pvp-only').forEach(el=>el.style.display=mode==='pvp'?'':'none');
+  document.querySelectorAll('.fttp-only').forEach(el=>el.classList.toggle('show',mode==='fttp'));
+  const desc=document.getElementById('setupDesc');
+  desc.textContent=mode==='pvp'
+    ?'A picture appears — match it to the correct number! Wrong answer? The other team can steal.'
+    :'Each player gets their own picture. First to the target score wins the Race to the Top!';
+  if(mode==='fttp') updateFttpPlayerBadges();
+}
+function selectRange(val){
+  currentRange=val;
+  ['1-10','1-20','1-100'].forEach(r=>document.getElementById('opt'+r).classList.toggle('selected',r===val));
+}
+function updateFttpPlayerBadges(){
+  const n=parseInt(document.getElementById('fttpPlayerCount').value);
+  const row=document.getElementById('teamsRow'); row.innerHTML='';
+  for(let i=0;i<n;i++){
+    const p=PLAYERS[i],d=document.createElement('div');
+    d.className='team-badge'; d.style.background=p.hex; d.textContent=p.emoji+' '+p.label;
+    row.appendChild(d);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  GAME START / RESET
+// ═══════════════════════════════════════════════════
+function startGame(){
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('gameOverOverlay').classList.remove('show');
+  document.getElementById('fttpWinOverlay').style.display='none';
+  gameRunning=true;
+  preloadFingers(); preloadDots(); preloadTenFrames();
+  if(currentMode==='pvp') startPvP(); else startFTTP();
+}
+function resetGame(){
+  gameRunning=false; clearStealTimer();
+  document.getElementById('gameOverOverlay').classList.remove('show');
+  document.getElementById('fttpWinOverlay').style.display='none';
+  // clean up FTTP confetti
+  const wo=document.getElementById('fttpWinOverlay');
+  wo.querySelectorAll('div[style*="confettiFall"]').forEach(e=>e.remove());
+  // reset PVP card
+  const card=document.getElementById('repCard');
+  card.className='rep-card';
+  card.innerHTML='<div style="color:#aaa;font-family:\'Fredoka One\',cursive;font-size:1.2rem;pointer-events:none;">Press ▶ to begin</div><div class="result-overlay" id="resultOverlay"><div id="resultText"></div><div class="sub" id="resultSub"></div></div>';
+  document.getElementById('setupScreen').style.display='flex';
+  rebuildBottomStripPvP(); disableAllPvpBtns();
+  // show PVP bars, hide FTTP
+  showPvPLayout();
+  document.getElementById('fttpArea').classList.remove('active');
+}
+
+// ═══════════════════════════════════════════════════
+//  LAYOUT SWITCHING
+// ═══════════════════════════════════════════════════
+function showPvPLayout(){
+  document.getElementById('pvpRedBar').style.display='';
+  document.getElementById('pvpGreenBar').style.display='';
+  document.getElementById('pvpCentre').style.display='';
+  document.getElementById('fttpArea').classList.remove('active');
+}
+function showFttpLayout(n){
+  document.getElementById('pvpRedBar').style.display='none';
+  document.getElementById('pvpGreenBar').style.display='none';
+  document.getElementById('pvpCentre').style.display='none';
+  buildFttpLayout(n);
+  buildFttpBottomStrip(n);
+  document.getElementById('fttpArea').classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════
+//  PVP MODE
+// ═══════════════════════════════════════════════════
+function rebuildBottomStripPvP(){
+  const strip=document.getElementById('bottomStrip');
+  strip.innerHTML=`
+    <button class="choice-btn" style="background:#e53e3e;font-size:clamp(2rem,3.8vw,3.8rem);" id="red-0" onclick="answer('red',0)" disabled></button>
+    <button class="choice-btn" style="background:#c53030;font-size:clamp(2rem,3.8vw,3.8rem);" id="red-1" onclick="answer('red',1)" disabled></button>
+    <button class="choice-btn" style="background:#9b2c2c;font-size:clamp(2rem,3.8vw,3.8rem);" id="red-2" onclick="answer('red',2)" disabled></button>
+    <div class="next-wrap"><button class="next-btn" id="nextBtn"><svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/></svg></button></div>
+    <button class="choice-btn" style="background:#16a34a;font-size:clamp(2rem,3.8vw,3.8rem);" id="green-0" onclick="answer('green',0)" disabled></button>
+    <button class="choice-btn" style="background:#15803d;font-size:clamp(2rem,3.8vw,3.8rem);" id="green-1" onclick="answer('green',1)" disabled></button>
+    <button class="choice-btn" style="background:#166534;font-size:clamp(2rem,3.8vw,3.8rem);" id="green-2" onclick="answer('green',2)" disabled></button>`;
+}
+function startPvP(){
+  showPvPLayout();
+  pvpStealEnabled=document.getElementById('stealToggle').checked;
+  totalRounds=parseInt(document.getElementById('playerCount').value)/2;
+  pvpRedScore=0; pvpGreenScore=0; currentRound=0;
+  document.getElementById('redScore').textContent='0';
+  document.getElementById('greenScore').textContent='0';
+  document.getElementById('redFill').style.height='0%';
+  document.getElementById('greenFill').style.height='0%';
+  document.getElementById('redLabel').textContent='of '+totalRounds;
+  document.getElementById('greenLabel').textContent='of '+totalRounds;
+  typeDeck=buildDeck(currentRange==='1-10'?TYPES_010:TYPES_WIDE,totalRounds);
+  nextRound();
+}
+function nextRound(){
+  if(!gameRunning) return;
+  currentRound++;
+  if(currentRound>totalRounds){endPvPGame();return;}
+  document.getElementById('roundInfo').textContent='Round '+currentRound+' of '+totalRounds;
+  const card=document.getElementById('repCard'); card.className='rep-card';
+  for(let i=0;i<3;i++) ['red','green'].forEach(t=>{const b=document.getElementById(t+'-'+i);b.classList.remove('correct','wrong');b.disabled=false;});
+  const {correct,opts,ci}=makeQuestion();
+  options=opts; correctIndex=ci;
+  for(let i=0;i<3;i++){document.getElementById('red-'+i).textContent=opts[i];document.getElementById('green-'+i).textContent=opts[i];}
+  const type=typeDeck[currentRound-1]||(currentRange==='1-10'?TYPES_010:TYPES_WIDE)[0];
+  currentType=type; correctNumber=correct;
+  renderCard('repCard',type,correct,null);
+  if(type!=='fingers'&&type!=='dots'&&type!=='tenframe'){
+    const ov=document.createElement('div');ov.className='result-overlay';ov.id='resultOverlay';
+    ov.innerHTML='<div id="resultText"></div><div class="sub" id="resultSub"></div>';
+    card.appendChild(ov);
+  }
+  roundPhase=0; lockedTeam=''; clearStealTimer();
+  document.getElementById('stealBanner').style.display='none';
+  document.getElementById('teacherPanel').style.display='none';
+  document.getElementById('teacherPanel').style.background='rgba(46,61,95,0.92)';
+  const ov=document.getElementById('resultOverlay'); if(ov) ov.className='result-overlay';
+  roundActive=true;
+}
+function answer(team,idx){
+  if(currentMode==='fttp'){answerFttp(team,idx);return;}
+  if(!roundActive) return;
+  if(roundPhase===1&&team===lockedTeam) return;
+  const correct=(idx===correctIndex);
+  if(correct){
+    roundActive=false; clearStealTimer(); disableAllPvpBtns();
+    document.getElementById('stealBanner').style.display='none';
+    document.getElementById(team+'-'+idx).classList.add('correct');
+    document.getElementById('red-'+correctIndex).classList.add('correct');
+    document.getElementById('green-'+correctIndex).classList.add('correct');
+    awardPvPPoint(team,roundPhase===1?'Great steal! 🎉':'Correct! ✓');
+  } else if(roundPhase===0 && pvpStealEnabled){
+    // First wrong — steal opportunity
+    roundPhase=1; lockedTeam=team;
+    const other=team==='red'?'green':'red';
+    document.getElementById(team+'-'+idx).classList.add('wrong');
+    for(let i=0;i<3;i++) document.getElementById(team+'-'+i).disabled=true;
+    const teamLabel=team==='red'?'🔴 Red':'🟢 Green';
+    const otherLabel=other==='red'?'🔴 Red':'🟢 Green';
+    const otherColour=other==='red'?'rgba(197,48,48,0.92)':'rgba(21,128,61,0.92)';
+    const panel=document.getElementById('teacherPanel');
+    panel.style.display='block'; panel.style.background=otherColour;
+    stealSecondsLeft=5;
+    function updatePanel(){
+      panel.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+        <span style="font-family:'Fredoka One',cursive;font-size:1.15rem;color:white;">${teamLabel} got it wrong! — ${otherLabel}, can you steal?</span>
+        <span class="steal-countdown" id="stealCount">${stealSecondsLeft}</span></div>`;
+    }
+    updatePanel();
+    clearStealTimer();
+    stealTimer=setInterval(()=>{
+      stealSecondsLeft--;
+      const el=document.getElementById('stealCount'); if(el) el.textContent=stealSecondsLeft;
+      if(stealSecondsLeft<=0){clearStealTimer();pvpTimeUp();}
+    },1000);
+  } else {
+    // Wrong with no steal (steal disabled, or second wrong)
+    roundActive=false; clearStealTimer(); disableAllPvpBtns();
+    document.getElementById('stealBanner').style.display='none';
+    document.getElementById(team+'-'+idx).classList.add('wrong');
+    document.getElementById('red-'+correctIndex).classList.add('correct');
+    document.getElementById('green-'+correctIndex).classList.add('correct');
+    document.getElementById('repCard').classList.remove('flash-red','flash-green');
+    if(roundPhase===1){
+      flashMsg('Both teams got it wrong!',()=>showTeacherPanel(currentType,correctNumber));
+    } else {
+      // steal disabled — no point, show correct answer
+      flashMsg('No point — correct answer shown!',()=>showTeacherPanel(currentType,correctNumber));
+    }
+  }
+}
+function awardPvPPoint(team,reason){
+  const card=document.getElementById('repCard');
+  if(team==='red'){
+    pvpRedScore++; document.getElementById('redScore').textContent=pvpRedScore;
+    document.getElementById('redFill').style.height=(pvpRedScore/totalRounds*100)+'%';
+    card.classList.add('flash-red');
+    showPvPResult('red-win','🔴 Red wins the point!',reason+' — Click ▶ for next');
+  } else {
+    pvpGreenScore++; document.getElementById('greenScore').textContent=pvpGreenScore;
+    document.getElementById('greenFill').style.height=(pvpGreenScore/totalRounds*100)+'%';
+    card.classList.add('flash-green');
+    showPvPResult('green-win','🟢 Green wins the point!',reason+' — Click ▶ for next');
+  }
+}
+function showPvPResult(cls,text,sub){
+  const ov=document.getElementById('resultOverlay');
+  document.getElementById('resultText').textContent=text;
+  document.getElementById('resultSub').textContent=sub;
+  ov.className='result-overlay show '+cls;
+}
+function pvpTimeUp(){
+  roundActive=false; disableAllPvpBtns();
+  document.getElementById('red-'+correctIndex).classList.add('correct');
+  document.getElementById('green-'+correctIndex).classList.add('correct');
+  document.getElementById('repCard').classList.remove('flash-red','flash-green');
+  flashMsg("⏱️ Time's Up!",()=>showTeacherPanel(currentType,correctNumber));
+}
+function endPvPGame(){
+  gameRunning=false; roundActive=false;
+  const title=document.getElementById('gameOverTitle');
+  document.getElementById('gameOverScores').textContent='🔴 Red: '+pvpRedScore+'  |  🟢 Green: '+pvpGreenScore;
+  if(pvpRedScore>pvpGreenScore)      {title.textContent='🔴 Red Team Wins!';  title.style.color='var(--red)';}
+  else if(pvpGreenScore>pvpRedScore) {title.textContent='🟢 Green Team Wins!';title.style.color='#15803d';}
+  else                               {title.textContent="🤝 It's a Draw!";    title.style.color='var(--navy)';}
+  document.getElementById('gameOverOverlay').classList.add('show');
+}
+function disableAllPvpBtns(){
+  ['red','green'].forEach(t=>{for(let i=0;i<3;i++){const b=document.getElementById(t+'-'+i);if(b)b.disabled=true;}});
+}
+
+// ═══════════════════════════════════════════════════
+//  FTTP MODE
+// ═══════════════════════════════════════════════════
+function buildFttpLayout(n){
+  const row=document.getElementById('fttpPlayersRow');
+  row.innerHTML='';
+  for(let pi=0;pi<n;pi++){
+    const p=PLAYERS[pi];
+    const wrap=document.createElement('div');
+    wrap.className='fttp-player'; wrap.id='fttpPlayer'+pi;
+    wrap.innerHTML=`
+      <div class="fttp-player-label" style="background:${p.hex}cc;">${p.emoji} ${p.label}</div>
+      <div class="fttp-card" id="fttpCard${pi}" style="border:5px solid ${p.hex};">
+        <div style="color:#aaa;font-family:'Fredoka One',cursive;font-size:0.95rem;pointer-events:none;">Ready!</div>
+        <div class="fttp-result-overlay" id="fttpOverlay${pi}"></div>
+      </div>`;
+    row.appendChild(wrap);
+  }
+  buildProgressTrack(n);
+}
+function buildProgressTrack(n){
+  ['progressTrack','progressTrackLeft'].forEach(trackId=>{
+    const track=document.getElementById(trackId); if(!track) return;
+    track.innerHTML='';
+    const tl=document.createElement('div'); tl.className='progress-target-line'; track.appendChild(tl);
+    for(let pi=0;pi<n;pi++){
+      const p=PLAYERS[pi];
+      const fill=document.createElement('div'); fill.className='progress-fill';
+      fill.id=trackId==='progressTrack'?'fttpFill'+pi:'fttpFillL'+pi;
+      fill.style.background=p.fill; fill.style.height='0%'; track.appendChild(fill);
+      const dot=document.createElement('div'); dot.className='progress-dot';
+      dot.id=trackId==='progressTrack'?'fttpDot'+pi:'fttpDotL'+pi;
+      dot.style.background=p.hex; dot.style.bottom='2px'; dot.textContent=p.emoji;
+      track.appendChild(dot);
+    }
+  });
+  document.getElementById('progressLabel').textContent='First to '+fttpTarget;
+  document.getElementById('progressLabelLeft').textContent='First to '+fttpTarget;
+}
+function buildFttpBottomStrip(n){
+  const strip=document.getElementById('bottomStrip'); strip.innerHTML='';
+  // Left spacer matching left progress bar
+  const spacerL=document.createElement('div');
+  spacerL.style.cssText='flex:0 0 76px;background:rgba(0,0,0,0.20);';
+  strip.appendChild(spacerL);
+  for(let pi=0;pi<n;pi++){
+    const p=PLAYERS[pi];
+    // Outer wrapper adds the same side padding as .fttp-player (10px each side)
+    // and a separator gap on the right (except last player)
+    const outer=document.createElement('div');
+    outer.style.cssText=`flex:1;display:flex;align-items:stretch;padding:0 10px;${pi<n-1?'border-right:3px solid rgba(255,255,255,0.2);':''}`;
+    const group=document.createElement('div');
+    group.className='player-btn-group'; group.id='fttpBtnGroup'+pi;
+    group.style.cssText='flex:1;display:flex;align-items:stretch;border-radius:10px;overflow:hidden;';
+    for(let bi=0;bi<3;bi++){
+      const btn=document.createElement('button');
+      btn.className='choice-btn'; btn.style.background=p.bg[bi]; btn.id='fttpBtn'+pi+'_'+bi; btn.disabled=true;
+      btn.addEventListener('click',(()=>{const _pi=pi,_bi=bi;return()=>answerFttp(_pi,_bi);})());
+      group.appendChild(btn);
+    }
+    outer.appendChild(group);
+    strip.appendChild(outer);
+  }
+  // Right spacer matching right progress bar
+  const spacerR=document.createElement('div');
+  spacerR.style.cssText='flex:0 0 76px;background:rgba(0,0,0,0.20);';
+  strip.appendChild(spacerR);
+}
+function startFTTP(){
+  fttpNumPlayers=parseInt(document.getElementById('fttpPlayerCount').value);
+  fttpTarget=parseInt(document.getElementById('targetScore').value);
+  fttpTryAgain=document.getElementById('tryAgainToggle').checked;
+  showFttpLayout(fttpNumPlayers);
+  const types=currentRange==='1-10'?TYPES_010:TYPES_WIDE;
+  fttpState=[];
+  for(let pi=0;pi<fttpNumPlayers;pi++)
+    fttpState.push({score:0,options:[],correctIdx:-1,active:false,type:'',number:0,deck:buildDeck(types,100)});
+  for(let pi=0;pi<fttpNumPlayers;pi++) fttpNextQ(pi);
+}
+function fttpNextQ(pi){
+  if(!gameRunning) return;
+  const {correct,opts,ci}=makeQuestion();
+  const st=fttpState[pi];
+  const type=st.deck[st.score%st.deck.length];
+  st.options=opts; st.correctIdx=ci; st.active=true; st.type=type; st.number=correct;
+  for(let bi=0;bi<3;bi++){
+    const btn=document.getElementById('fttpBtn'+pi+'_'+bi);
+    if(!btn) continue; btn.textContent=opts[bi]; btn.classList.remove('correct','wrong'); btn.disabled=false;
+  }
+  const card=document.getElementById('fttpCard'+pi); if(!card) return;
+  card.className='fttp-card';
+  const ov=document.getElementById('fttpOverlay'+pi); if(ov) ov.className='fttp-result-overlay';
+  renderCard('fttpCard'+pi,type,correct,pi);
+}
+function answerFttp(pi,bi){
+  const st=fttpState[pi]; if(!st||!st.active||!gameRunning) return;
+  const correct=(bi===st.correctIdx);
+  const card=document.getElementById('fttpCard'+pi);
+  const ov=document.getElementById('fttpOverlay'+pi);
+  for(let i=0;i<3;i++){const b=document.getElementById('fttpBtn'+pi+'_'+i);if(b)b.disabled=true;}
+  const chosenBtn=document.getElementById('fttpBtn'+pi+'_'+bi);
+  const correctBtn=document.getElementById('fttpBtn'+pi+'_'+st.correctIdx);
+  if(correct){
+    st.active=false;
+    if(chosenBtn) chosenBtn.classList.add('correct');
+    if(card) card.classList.add('flash-correct');
+    if(ov){ov.className='fttp-result-overlay show correct-flash';ov.textContent='✓ Correct!';}
+    st.score++;
+    updateProgress(pi);
+    if(st.score>=fttpTarget){setTimeout(()=>fttpShowWin(pi),700);return;}
+    setTimeout(()=>fttpNextQ(pi),900);
+  } else {
+    if(chosenBtn) chosenBtn.classList.add('wrong');
+    if(fttpTryAgain){
+      if(card){card.classList.add('flash-wrong');setTimeout(()=>card.classList.remove('flash-wrong'),600);}
+      if(ov){ov.className='fttp-result-overlay show wrong-flash';ov.textContent='✗ Try again!';}
+      setTimeout(()=>{
+        if(ov) ov.className='fttp-result-overlay';
+        for(let i=0;i<3;i++){const b=document.getElementById('fttpBtn'+pi+'_'+i);if(b&&i!==bi)b.disabled=false;}
+        st.active=true;
+      },600);
+    } else {
+      st.active=false;
+      if(correctBtn) correctBtn.classList.add('correct');
+      if(card) card.classList.add('flash-wrong');
+      if(ov){ov.className='fttp-result-overlay show wrong-flash';ov.textContent='✗ Next!';}
+      setTimeout(()=>fttpNextQ(pi),1000);
+    }
+  }
+}
+function updateProgress(pi){
+  const pct=Math.min(fttpState[pi].score/fttpTarget*100,100);
+  ['fttpFill','fttpFillL'].forEach(pre=>{
+    const fill=document.getElementById(pre+pi); if(fill) fill.style.height=pct+'%';
+  });
+  ['fttpDot','fttpDotL'].forEach(pre=>{
+    const dot=document.getElementById(pre+pi); if(dot) dot.style.bottom='calc('+pct+'% - 4px)';
+  });
+}
+function fttpShowWin(pi){
+  gameRunning=false;
+  for(let p=0;p<fttpNumPlayers;p++) for(let b=0;b<3;b++){const btn=document.getElementById('fttpBtn'+p+'_'+b);if(btn)btn.disabled=true;}
+  const player=PLAYERS[pi];
+  const ov=document.getElementById('fttpWinOverlay');
+  ov.style.background=`radial-gradient(ellipse at center,${player.hex}ee 0%,${player.bg[2]}ff 100%)`;
+  document.getElementById('winTitle').textContent=player.emoji+' '+player.label+' Wins!';
+  document.getElementById('winSub').textContent='Race to the Top — first to '+fttpTarget+'!';
+  document.getElementById('winScores').textContent=fttpState.map((s,i)=>PLAYERS[i].emoji+' '+PLAYERS[i].label+': '+s.score).join('  |  ');
+  document.getElementById('winPlayAgainBtn').style.color=player.hex;
+  ov.style.display='flex';
+  spawnConfetti(player.hex,player.bg);
+}
+
+// ═══════════════════════════════════════════════════
+//  SHARED HELPERS
+// ═══════════════════════════════════════════════════
+function makeQuestion(){
+  const minN=1,maxN=currentRange==='1-10'?10:currentRange==='1-20'?20:100;
+  const correct=minN+Math.floor(Math.random()*(maxN-minN+1));
+  const wrongs=[];
+  while(wrongs.length<2){const w=minN+Math.floor(Math.random()*(maxN-minN+1));if(w!==correct&&!wrongs.includes(w))wrongs.push(w);}
+  const opts=shuffle([correct,wrongs[0],wrongs[1]]);
+  return{correct,opts,ci:opts.indexOf(correct)};
+}
+function buildDeck(types,n){const d=[];for(let i=0;i<n;i++)d.push(types[i%types.length]);return shuffle(d);}
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function clearStealTimer(){if(stealTimer){clearInterval(stealTimer);stealTimer=null;}}
+function flashMsg(msg,then){
+  const tup=document.getElementById('timeUpOverlay');
+  document.querySelector('#timeUpOverlay .tup-big').textContent=msg;
+  tup.classList.add('show');
+  setTimeout(()=>{tup.classList.remove('show');then();},2000);
+}
+function spawnConfetti(mainHex,shades){
+  const colours=[mainHex,'#fff','#F47920',...shades];
+  const container=document.getElementById('fttpWinOverlay');
+  for(let i=0;i<70;i++){
+    const el=document.createElement('div');const sz=6+Math.random()*10;
+    el.style.cssText=`position:absolute;width:${sz}px;height:${sz}px;border-radius:${Math.random()>.5?'50%':'2px'};background:${colours[Math.floor(Math.random()*colours.length)]};left:${Math.random()*100}%;top:-20px;opacity:1;animation:confettiFall ${1.5+Math.random()*2}s ease-in ${Math.random()*.8}s forwards;pointer-events:none;`;
+    container.appendChild(el);
+    setTimeout(()=>el.remove(),4000);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  TEACHER PANEL (PVP)
+// ═══════════════════════════════════════════════════
+const TEACHER_PROMPTS={
+  fingers:   [n=>`Let's count the fingers together.`,n=>`Everyone show me ${n} finger${n!==1?'s':''}!`],
+  dots:      [n=>`Let's count the dots — how many can you see?`,n=>`Are they in a pattern? Does that help?`,n=>`How did you try to count them?`],
+  tenframe:  [n=>`How many circles are filled in the ten frame?`,n=>n<=10?`How many empty spaces? So how many filled?`:`Full ten frame plus ${n-10} more. What's 10 + ${n-10}?`,n=>`Could you count by 2s? By 5s?`],
+  placevalue:[n=>`How many tens rods? How many ones cubes?`,n=>`Orange rods = 10 each. How many tens?`,n=>`${Math.floor(n/10)} tens and ${n%10} ones — what number?`],
+};
+function showTeacherPanel(type,n){
+  const prompts=TEACHER_PROMPTS[type]||TEACHER_PROMPTS.dots;
+  const p1=prompts[0](n),p2=prompts[prompts.length>1?Math.floor(Math.random()*(prompts.length-1))+1:0](n);
+  const panel=document.getElementById('teacherPanel'); panel.style.display='block';
+  panel.innerHTML=`<div style="font-family:'Inter',sans-serif;font-size:0.85rem;font-weight:700;color:white;background:rgba(255,255,255,0.12);border-radius:8px;padding:7px 12px;margin-bottom:6px;line-height:1.5;">💬 ${p1}</div><div style="font-family:'Inter',sans-serif;font-size:0.85rem;font-weight:700;color:white;background:rgba(255,255,255,0.12);border-radius:8px;padding:7px 12px;line-height:1.5;">💬 ${p2}</div>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER CARD
+// ═══════════════════════════════════════════════════
+function renderCard(cardRef,type,n,playerIdx){
+  const card=typeof cardRef==='string'?document.getElementById(cardRef):cardRef;
+  if(!card) return;
+  const ovClass=playerIdx!==null?'fttp-result-overlay':'result-overlay';
+  const ovId=playerIdx!==null?'fttpOverlay'+playerIdx:'resultOverlay';
+  // Guard: dots only has images 1-9 → use fingers for 10 (which has an image)
+  if(type==='dots' && n===10) type='fingers';
+  // Guard: fingers only has images 1-10 → use tenframe for n>10
+  if(type==='fingers' && n>10) type='tenframe';
+  if     (type==='dots')      renderDots(card,n,ovClass,ovId);
+  else if(type==='tenframe')  renderTenFrame(card,n,ovClass,ovId);
+  else if(type==='fingers')   renderFingers(card,n,ovClass,ovId);
+  else if(type==='placevalue'){renderPlaceValue(card,n);ensureOverlay(card,ovClass,ovId);}
+}
+function ensureOverlay(card,cls,id){
+  if(!card.querySelector('.'+cls.split(' ')[0])){
+    const ov=document.createElement('div');ov.className=cls;ov.id=id;
+    if(cls==='result-overlay') ov.innerHTML='<div id="resultText"></div><div class="sub" id="resultSub"></div>';
+    card.appendChild(ov);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  IMAGE RENDERERS
+// ═══════════════════════════════════════════════════
+const DOTS_BASE='https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/';
+const DOTS_URLS={'d1a':DOTS_BASE+'199fea902_1.png','d1b':DOTS_BASE+'c4590103a_2.png','d2a':DOTS_BASE+'8ccb0eaab_3.png','d2b':DOTS_BASE+'839e7fc29_4.png','d2c':DOTS_BASE+'56cbcbdb4_22.png','d3a':DOTS_BASE+'bd6d6896e_5.png','d3b':DOTS_BASE+'0efec49b8_6.png','d3c':DOTS_BASE+'96cceeefe_7.png','d3d':DOTS_BASE+'db78dc93b_23.png','d3e':DOTS_BASE+'b8d926955_24.png','d4a':DOTS_BASE+'6332c4037_8.png','d4b':DOTS_BASE+'9f577dbb3_9.png','d4c':DOTS_BASE+'81fa42957_10.png','d4d':DOTS_BASE+'65e1cf383_11.png','d4e':DOTS_BASE+'dfe02a4b7_12.png','d4f':DOTS_BASE+'3ee15a578_25.png','d4g':DOTS_BASE+'e69a831f6_26.png','d4h':DOTS_BASE+'55cc4733d_27.png','d4i':DOTS_BASE+'676bfcb48_28.png','d5a':DOTS_BASE+'42bb060f6_13.png','d5b':DOTS_BASE+'bdd7af44c_14.png','d5c':DOTS_BASE+'2b1fc916b_15.png','d5d':DOTS_BASE+'dc1350a2b_16.png','d5e':DOTS_BASE+'5a8b05607_17.png','d5f':DOTS_BASE+'7bcd6ed1b_29.png','d5g':DOTS_BASE+'dd57a96c1_30.png','d6a':DOTS_BASE+'4e6b473fc_18.png','d6b':DOTS_BASE+'a44c61898_19.png','d6c':DOTS_BASE+'42ff827b4_20.png','d6d':DOTS_BASE+'661f220c0_31.png','d6e':DOTS_BASE+'0756cdee3_32.png','d7a':DOTS_BASE+'aaa50aca9_21.png','d7b':DOTS_BASE+'67b7bef8d_22.png','d7c':DOTS_BASE+'d0949f9f9_33.png','d8a':DOTS_BASE+'008fff6af_23.png','d8b':DOTS_BASE+'482052c10_24.png','d8c':DOTS_BASE+'187b9d1c5_34.png','d9a':DOTS_BASE+'c6b3557c1_25.png'};
+const DOTS_COMBOS={1:['d1a','d1b'],2:['d2a','d2b','d2c'],3:['d3a','d3b','d3c','d3d','d3e'],4:['d4a','d4b','d4c','d4d','d4e','d4f','d4g','d4h','d4i'],5:['d5a','d5b','d5c','d5d','d5e','d5f','d5g'],6:['d6a','d6b','d6c','d6d','d6e'],7:['d7a','d7b','d7c'],8:['d8a','d8b','d8c'],9:['d9a']};
+const dotsCache={};
+function getDotsDataURL(k,cb){if(dotsCache[k]){cb(dotsCache[k]);return;}const url=DOTS_URLS[k];if(!url){cb(null);return;}fetch(url).then(r=>r.blob()).then(blob=>{const rd=new FileReader();rd.onload=()=>{dotsCache[k]=rd.result;cb(rd.result);};rd.readAsDataURL(blob);}).catch(()=>cb(null));}
+function preloadDots(){Object.keys(DOTS_URLS).forEach(k=>getDotsDataURL(k,()=>{}));}
+function renderDots(card,n,ovClass,ovId){
+  const variants=DOTS_COMBOS[n];
+  if(!variants){card.innerHTML=`<div style="font-family:'Fredoka One',cursive;font-size:4rem;color:var(--navy);pointer-events:none;">${n}</div>`;ensureOverlay(card,ovClass,ovId);return;}
+  const k=variants[Math.floor(Math.random()*variants.length)];
+  card.innerHTML=`<div style="color:#aaa;font-size:0.9rem;pointer-events:none;">Loading…</div>`;
+  getDotsDataURL(k,url=>{
+    if(card.innerHTML.includes('Loading')||card.querySelector('.'+ovClass.split(' ')[0])!==null){
+      card.innerHTML=url?`<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;pointer-events:none;"><img src="${url}" style="max-width:95%;max-height:95%;object-fit:contain;display:block;pointer-events:none;"/></div>`:`<div style="font-family:'Fredoka One',cursive;font-size:4rem;color:var(--navy);pointer-events:none;">${n}</div>`;
+      ensureOverlay(card,ovClass,ovId);
+    }
+  });
+}
+const TF_BASE='https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/';
+const TF_URLS={1:TF_BASE+'56bcb3753_1.png',2:TF_BASE+'8b0d9927d_2.png',3:TF_BASE+'d0b6d4f16_3.png',4:TF_BASE+'035856e9d_4.png',5:TF_BASE+'60ed6ec8a_5.png',6:TF_BASE+'30ec574da_6.png',7:TF_BASE+'1abe6e9b6_7.png',8:TF_BASE+'c8d4e2a1d_8.png',9:TF_BASE+'2878799ff_9.png',10:TF_BASE+'5b162f292_10.png',11:TF_BASE+'fd9b7cc37_11.png',12:TF_BASE+'8ad7afc8e_12.png',13:TF_BASE+'616e7c00b_13.png',14:TF_BASE+'ec330bf96_14.png',15:TF_BASE+'420fd7fae_15.png',16:TF_BASE+'b683b5811_16.png',17:TF_BASE+'b5012a86f_17.png',18:TF_BASE+'c85ddbdd4_18.png',19:TF_BASE+'163d73ab3_19.png',20:TF_BASE+'6199d423e_20.png'};
+const tfCache={};
+function getTFDataURL(k,cb){if(tfCache[k]){cb(tfCache[k]);return;}const url=TF_URLS[k];if(!url){cb(null);return;}fetch(url).then(r=>r.blob()).then(blob=>{const rd=new FileReader();rd.onload=()=>{tfCache[k]=rd.result;cb(rd.result);};rd.readAsDataURL(blob);}).catch(()=>cb(null));}
+function preloadTenFrames(){Object.keys(TF_URLS).forEach(k=>getTFDataURL(k,()=>{}));}
+function renderTenFrame(card,n,ovClass,ovId){
+  const k=TF_URLS[n]?n:null;
+  if(!k){card.innerHTML=`<div style="font-family:'Fredoka One',cursive;font-size:4rem;color:var(--navy);pointer-events:none;">${n}</div>`;ensureOverlay(card,ovClass,ovId);return;}
+  card.innerHTML=`<div style="color:#aaa;font-size:0.9rem;pointer-events:none;">Loading…</div>`;
+  getTFDataURL(k,url=>{
+    if(card.innerHTML.includes('Loading')||card.querySelector('.'+ovClass.split(' ')[0])!==null){
+      card.innerHTML=url?`<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;pointer-events:none;"><img src="${url}" style="max-width:95%;max-height:95%;object-fit:contain;display:block;pointer-events:none;"/></div>`:`<div style="font-family:'Fredoka One',cursive;font-size:4rem;color:var(--navy);pointer-events:none;">${n}</div>`;
+      ensureOverlay(card,ovClass,ovId);
+    }
+  });
+}
+const BASE='https://base44.app/api/apps/69be39e340d641da3a806932/files/mp/public/69be39e340d641da3a806932/';
+const FINGER_URLS={1:BASE+'d01d1176f_1.png',2:BASE+'1964644b8_2.png','2b':BASE+'9fb086dea_13.png',3:BASE+'cd215cb04_3.png','3b':BASE+'a112d6e9a_14.png',4:BASE+'05bfc7c13_4.png','4b':BASE+'7fcf6a86f_15.png','4c':BASE+'764d878ee_16.png',5:BASE+'6a4787f53_5.png','5b':BASE+'9eee8d07f_17.png',6:BASE+'314938032_6.png',7:BASE+'546df2600_7.png',8:BASE+'edd75ee67_8.png',9:BASE+'a3a467bf7_10.png',10:BASE+'90551d41b_11.png'};
+const FINGER_COMBOS={1:[[1]],2:[[2],['2b']],3:[[3],['3b']],4:[[4],['4b'],['4c']],5:[[5],['5b']],6:[[6]],7:[[7]],8:[[8]],9:[[9]],10:[[10]]};
+const fingerCache={};
+function getFingerDataURL(k,cb){if(fingerCache[k]){cb(fingerCache[k]);return;}const url=FINGER_URLS[k];if(!url){cb(null);return;}fetch(url).then(r=>r.blob()).then(blob=>{const rd=new FileReader();rd.onload=()=>{fingerCache[k]=rd.result;cb(rd.result);};rd.readAsDataURL(blob);}).catch(()=>cb(null));}
+function preloadFingers(){Object.keys(FINGER_URLS).forEach(k=>getFingerDataURL(k,()=>{}));}
+function renderFingers(card,n,ovClass,ovId){
+  const variants=FINGER_COMBOS[n];
+  if(!variants){card.innerHTML=`<div style="font-family:'Fredoka One',cursive;font-size:4rem;color:var(--navy);pointer-events:none;">${n}</div>`;ensureOverlay(card,ovClass,ovId);return;}
+  const combo=variants[Math.floor(Math.random()*variants.length)];const k=combo[0];
+  card.innerHTML=`<div style="color:#aaa;font-size:0.9rem;pointer-events:none;">Loading…</div>`;
+  getFingerDataURL(k,url=>{
+    if(card.innerHTML.includes('Loading')||card.querySelector('.'+ovClass.split(' ')[0])!==null){
+      card.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;pointer-events:none;">${url?`<img src="${url}" style="max-width:95%;max-height:95%;object-fit:contain;display:block;pointer-events:none;"/>`:`<span style="font-family:'Fredoka One',cursive;font-size:4rem;color:var(--navy);">${n}</span>`}</div>`;
+      ensureOverlay(card,ovClass,ovId);
+    }
+  });
+}
+function renderPlaceValue(card,n){
+  if(n===0){card.innerHTML=`<div style="font-family:'Fredoka One',cursive;font-size:6rem;color:var(--orange);line-height:1;pointer-events:none;">0</div>`;return;}
+  const tens=Math.floor(n/10),ones=n%10,U=16,G=3,RH=U*10+G*9;
+  let parts='',x=0;
+  for(let t=0;t<tens;t++){
+    parts+=`<rect x="${x}" y="0" width="${U}" height="${RH}" rx="3" fill="var(--orange)" stroke="#c4611a" stroke-width="2"/>`;
+    for(let s=1;s<10;s++) parts+=`<line x1="${x}" y1="${s*(U+G)-G}" x2="${x+U}" y2="${s*(U+G)-G}" stroke="#c4611a" stroke-width="1.5"/>`;
+    x+=U+G*2;
+  }
+  if(tens>0&&ones>0) x+=G*2;
+  for(let o=0;o<ones;o++) parts+=`<rect x="${x}" y="${o*(U+G)}" width="${U}" height="${U}" rx="3" fill="var(--navy)" stroke="#1e2d45" stroke-width="2"/>`;
+  const svgW=x+(ones>0?U:0),sc=Math.min(svgW>0?400/svgW:1,RH>0?200/RH:1,1);
+  const dW=Math.round(svgW*sc),dH=Math.round(RH*sc);
+  card.innerHTML=`<svg viewBox="0 0 ${svgW} ${RH}" width="${dW}" height="${dH}" xmlns="http://www.w3.org/2000/svg" style="display:block;pointer-events:none;">${parts}</svg><div style="font-family:'Inter',sans-serif;font-weight:700;font-size:0.9rem;color:#555;margin-top:6px;pointer-events:none;">${tens>0?`<span style="color:var(--orange)">${tens} ten${tens>1?'s':''}</span>`:''}${tens>0&&ones>0?' + ':''}${ones>0?`<span style="color:var(--navy)">${ones} one${ones>1?'s':''}</span>`:''}</div>`;
+}
+
+// Single delegated listener for the next button — survives DOM rebuilds
+(function(){
+  let pvpBusy=false;
+  document.getElementById('bottomStrip').addEventListener('click',function(e){
+    if(!e.target.closest('#nextBtn')) return;
+    if(currentMode!=='pvp'||!gameRunning||pvpBusy) return;
+    pvpBusy=true; nextRound(); setTimeout(()=>{pvpBusy=false;},80);
+  });
+})();
+
+selectMode('pvp');
+</script>
+<style>
+  @keyframes confettiFall{0%{transform:translateY(0) rotate(0deg);opacity:1;}100%{transform:translateY(110vh) rotate(720deg);opacity:0;}}
+</style>
+</body>
+</html>
